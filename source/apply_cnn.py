@@ -26,13 +26,23 @@ import cv2
 # project imports
 import preprocess_image
 
+# --------------------------------------------------------------------------------------------------
+# CONSTANTS AND MODULE-LVL REFERENCES
+# --------------------------------------------------------------------------------------------------
+
+# configure logging
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 filedir = os.path.dirname(__file__)
 
+# path to json with dog-classes
 DOG_CLASSES_PTH = os.path.join(filedir, './dog_classes_en.json')
+
+# path to model used for face/human detection
 FACE_CLASSIFIER_PTH = os.path.join(filedir, '../haarcascade/haarcascade_frontalface_alt.xml')
+
+# pathes to trained CNNs for classification of dog-breeds
 MODEL_PATHES = dict(
     resnet50=os.path.join(filedir, '../models/model.best.resnet50.hdf5'),
     from_scratch=os.path.join(filedir, '../models/model.best.from_scratch.hdf5'),
@@ -40,8 +50,10 @@ MODEL_PATHES = dict(
     vgg16=os.path.join(filedir, '../models/model.best.vgg16.hdf5'),
 )
 
+# reference to current model loaded
 __model = None
 
+# model used for dog-detection
 __ResNet50_model = ResNet50(weights='imagenet')
 
 # --------------------------------------------------------------------------------------------------
@@ -50,16 +62,43 @@ __ResNet50_model = ResNet50(weights='imagenet')
 
 
 def face_detector(img_path):
+    """
+    loads image and detects faces in images and returns boolean whether a face was found or not.
+
+    Parameters
+    ----------
+    img_path: str
+        path to image
+
+    Returns
+    -------
+    bool
+    """
     # extract pre-trained face detector
     face_cascade = cv2.CascadeClassifier(FACE_CLASSIFIER_PTH)
-
+    # read image
     img = cv2.imread(img_path)
+    # transform to gray-scale
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # detect faces if at least one detected return True
     faces = face_cascade.detectMultiScale(gray)
     return len(faces) > 0
 
 
 def dog_detector(img_path):
+    """
+    loads image and uses resnet50-model trained on imagenet for detection of dogs. If a dog is contained in the image
+    True will be returned; False otherwise.
+
+    Parameters
+    ----------
+    img_path: str
+        path to image
+
+    Returns
+    -------
+    bool
+    """
     img = preprocess_image.preprocess_resnet50(img_path)
     # get index of maximum from prediction vector (most likely class)
     resnet50pred = np.argmax(__ResNet50_model.predict(img))
@@ -69,6 +108,20 @@ def dog_detector(img_path):
 
 def predict_dog_breed(img_pth, model='resnet50'):
     """
+    Loads an image of a dog, classifies it's breed and returnes it's breed name. If image doesn't contain a dog, the
+    CNN will return the most likely dog class anyway.
+
+    Parameters
+    ----------
+    img_pth: str
+        path to image
+    model: str
+        trained CNN to be used for classification of the dog-breed
+
+    Returns
+    -------
+    str
+        name of the dog-breed
     """
     global __model
     if not __model:
@@ -77,7 +130,20 @@ def predict_dog_breed(img_pth, model='resnet50'):
     return __model.predict_name(img_pth)
 
 
-def classify_breed(imgpth):
+def classify_image(imgpth):
+    """
+    identifies whether a dog or a human is in the image. If one is in the image the most likely dog-breed will be
+    determined and message returned. If neither is the case a error-message will be returned.
+
+    Parameters
+    ----------
+    imgpth: str
+        path to the image
+
+    Returns
+    -------
+    None
+    """
     # preprocess img
     if dog_detector(imgpth):
         breed = predict_dog_breed(imgpth)
@@ -90,64 +156,169 @@ def classify_breed(imgpth):
 
 
 class DogPredictor:
+    """
+    class for loading different kinds of CNNs with knowledge transfer and appliing them to images of dogs for
+    determination of the most likely dog-breed.
 
+    Attributes
+    ----------
+    model: tensorflow.python.keras.engine.sequential.Sequential
+        trained model on top of the model used for transfered learning
+    tf_model: KnowledgeTransfer
+        model used for transfer learning
+    type: str
+        type of the currently loaded model
+
+    Methods
+    -------
+    change_type
+    load_model
+    predict_props
+    predict_name
+    """
+
+    # load json will class-names
     with open(DOG_CLASSES_PTH, 'r') as fin:
         __dog_names = json.load(fin)
 
-    def __init__(self, type='from_scratch'):
+    def __init__(self, model='from_scratch'):
+        """
+        initialize DogPredictor
+
+        Parameters
+        ----------
+        model: ['resnet50', 'from_scratch', 'xception', 'vgg16']
+            which model (CNN) to load
+        """
         self.model = None
         self.tf_model = None
         self.type = None
-        self.change_type(type)
+        self.change_type(model)
 
-    def change_type(self, type):
-        if self.type == type:
+    def change_type(self, model):
+        """
+        change currently active CNN.
+
+        Parameters
+        ----------
+        model: ['resnet50', 'from_scratch', 'xception', 'vgg16']
+            which model (CNN) to load
+
+        Returns
+        -------
+        None
+        """
+        if self.type == model:
             return
 
-        if type == 'resnet50':
+        if model == 'resnet50':
             self.tf_model = Resnet50()
-        elif type == 'from_scratch':
+        elif model == 'from_scratch':
             self.tf_model = NullTransfer()
-        elif type == 'xception':
+        elif model == 'xception':
             self.tf_model = Xception()
-        elif type == 'vgg16':
+        elif model == 'vgg16':
             self.tf_model = VGG16()
         else:
             raise ValueError
-        self.load_model(MODEL_PATHES.get(type))
-        self.type = type
+        self.load_model(MODEL_PATHES.get(model))
+        self.type = model
 
     def load_model(self, pth):
+        """
+        load stored CNN
+
+        Parameters
+        ----------
+        pth: str
+            path to trained CNN
+
+        Returns
+        -------
+        None
+        """
         self.model = load_model(pth)
 
     def predict_props(self, inp):
-        tf = self.tf_model.transfer(inp, image_path=True)
-        return self.model.predict(tf)
+        """
+        predict probabilities of different dog-breeds in image based on the current loaded CNN.
+
+        Parameters
+        ----------
+        inp: str
+            path to image
+
+        Returns
+        -------
+        np.array
+            vector with probabilities of the dog-breed classes
+        """
+        # feed image to model used for knowledge transfer
+        knowledge = self.tf_model.transfer(inp, image_path=True)
+        # the knowledge from previous model is feeded to main CNN
+        return self.model.predict(knowledge)
 
     def predict_name(self, inp):
+        """
+        predict most likely dog breed in image based on the current loaded CNN.
+
+        Parameters
+        ----------
+        inp: str
+            path to image
+
+        Returns
+        -------
+        str
+            name of the most likely dog-breed
+        """
         props = self.predict_props(inp)
+        # get most likely index
         maxidx = np.argmax(props)
         return DogPredictor.__dog_names[maxidx]
 
 
 class KnowledgeTransfer(ABC):
+    """
+    abstract class used for preprocessing images according to requirements of model used for transfered learning and
+    making data aggregation based on the model.
+    """
 
     @property
     @abstractmethod
     def model(self):
+        """ abstract property with model used for tf (must have a predict-method) """
         pass
 
     @abstractmethod
     def preprocess(self, image_path):
+        """ abstract method for preprocessing images based oon the model's needs """
         pass
 
     def transfer(self, inp, image_path=False):
+        """
+
+
+        Parameters
+        ----------
+        inp: str or np.array
+            path to image or already preprocessed image in form of an array
+        image_path: bool
+            whether input contains path to an image or is already preprocessed input
+
+        Returns
+        -------
+        np.array
+            aggregated data passed through tf-model
+        """
         if image_path:
             inp = self.preprocess(inp)
         return self.model.predict(inp)
 
 
 class VGG16(KnowledgeTransfer):
+    """ VGG16-TF-model trained on imagenet """
+
     def __init__(self):
         from keras.applications.vgg16 import VGG16 as VGG16Local
         self.__model = VGG16Local(weights='imagenet', include_top=False)
@@ -157,23 +328,29 @@ class VGG16(KnowledgeTransfer):
         return self.__model
 
     def preprocess(self, image_path):
+        """ delegate to VGG16's preprocess function """
         return preprocess_image.preprocess_vgg16(image_path)
 
 
 class Resnet50(KnowledgeTransfer):
+    """ Resnet50-TF-model trained on imagenet """
+
     def __init__(self):
-        from keras.applications.resnet50 import ResNet50 as ResNetLocal
-        self.__model = ResNetLocal(weights='imagenet', include_top=False)
+        # ResNet50 already imported in outer scope
+        self.__model = ResNet50(weights='imagenet', include_top=False)
 
     @property
     def model(self):
         return self.__model
 
     def preprocess(self, image_path):
+        """ delegate to Resnet50's preprocess function """
         return preprocess_image.preprocess_resnet50(image_path)
 
 
 class Xception(KnowledgeTransfer):
+    """ Xception-TF-model trained on imagenet """
+
     def __init__(self):
         from keras.applications.xception import Xception as XceptionLocal
         self.__model = XceptionLocal(weights='imagenet', include_top=False)
@@ -183,15 +360,22 @@ class Xception(KnowledgeTransfer):
         return self.__model
 
     def preprocess(self, image_path):
-        return preprocess_image.preprocess_xception(image_path, scale=True)
+        """ delegate to xception's preprocess function """
+        return preprocess_image.preprocess_xception(image_path)
 
 
 class NullModel:
-    def predict(self, x):
-        return x
+    """ pseudo-model class passing input through without any changes. Used for CNNs without Knowledge transfer """
+
+    def predict(self, arr):
+        """ implementation of required predict method called by KnowledgeTransfer-class """
+        return arr
 
 
 class NullTransfer(KnowledgeTransfer):
+    """
+    Model passing through input without transfer of knowledge. Used for CNNs without Knowledge transfer.
+    """
     def __init__(self):
         self.__model = NullModel()
 
@@ -200,4 +384,15 @@ class NullTransfer(KnowledgeTransfer):
         return self.__model
 
     def preprocess(self, image_path):
+        """
+        loads image and transfers to tensor
+
+        Parameters
+        ----------
+        image_path: str
+
+        Returns
+        -------
+        np.array
+        """
         return preprocess_image.path_to_tensor(image_path)
