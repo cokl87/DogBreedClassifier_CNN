@@ -12,6 +12,7 @@ author: kornel
 # --------------------------------------------------------------------------------------------------
 
 # standard lib imports
+import logging
 
 # 3rd party imports
 import numpy as np
@@ -23,9 +24,13 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 # project imports
 
 
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
+
 # --------------------------------------------------------------------------------------------------
-# MAIN LOGIC
+# FUNCTIONS AND CLASSES
 # --------------------------------------------------------------------------------------------------
+
 
 def scale_tensor(tensor):
     """
@@ -52,6 +57,8 @@ def path_to_tensor(img_path, scale=False):
     ----------
     img_path: str
         path to the image to load
+    scale: bool
+        whether to scale the resulting values of the tensor to values between 0 and 1
 
     Returns
     -------
@@ -75,6 +82,8 @@ def paths_to_tensor(img_paths, scale=False):
     ----------
     img_paths: iterable
         iterable with pathes to images
+    scale: bool
+        whether to scale the resulting values of the tensor to values between 0 and 1
 
     Returns
     -------

@@ -14,6 +14,7 @@ author: Cornelius
 # stamdard lib imports
 import json
 from abc import ABC, abstractmethod
+import logging
 
 # 3rd party imports
 import numpy as np
@@ -24,7 +25,11 @@ import cv2
 # project imports
 import preprocess_image
 
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
+
 DOG_CLASSES_PTH = './dog_classes_en.json'
+FACE_CLASSIFIER_PTH = 'haarcascades/haarcascade_frontalface_alt.xml'
 MODEL_PATHES = dict(
     resnet50='../models/model.best.resnet50.hdf5',
     from_scratch='../models/model.best.resnet50.hdf5',
@@ -37,13 +42,13 @@ __model = None
 __ResNet50_model = ResNet50(weights='imagenet')
 
 # --------------------------------------------------------------------------------------------------
-# MAIN LOGIC
+# FUNCTIONS AND CLASSES
 # --------------------------------------------------------------------------------------------------
 
 
 def face_detector(img_path):
     # extract pre-trained face detector
-    face_cascade = cv2.CascadeClassifier('haarcascades/haarcascade_frontalface_alt.xml')
+    face_cascade = cv2.CascadeClassifier(FACE_CLASSIFIER_PTH)
 
     img = cv2.imread(img_path)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -88,7 +93,7 @@ class DogPredictor:
     def __init__(self, type='from_scratch'):
         self.model = None
         self.tf_model = None
-        self.type = none
+        self.type = None
         self.change_type(type)
 
     def change_type(self, type):
