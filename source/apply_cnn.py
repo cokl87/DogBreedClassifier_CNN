@@ -15,6 +15,7 @@ author: Cornelius
 import json
 from abc import ABC, abstractmethod
 import logging
+import os.path
 
 # 3rd party imports
 import numpy as np
@@ -28,13 +29,15 @@ import preprocess_image
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
-DOG_CLASSES_PTH = './dog_classes_en.json'
-FACE_CLASSIFIER_PTH = 'haarcascades/haarcascade_frontalface_alt.xml'
+filedir = os.path.dirname(__file__)
+
+DOG_CLASSES_PTH = os.path.join(filedir, './dog_classes_en.json')
+FACE_CLASSIFIER_PTH = os.path.join(filedir, '../haarcascades/haarcascade_frontalface_alt.xml')
 MODEL_PATHES = dict(
-    resnet50='../models/model.best.resnet50.hdf5',
-    from_scratch='../models/model.best.resnet50.hdf5',
-    xception='../models/model.best.resnet50.hdf5',
-    vgg16='../models/model.best.resnet50.hdf5',
+    resnet50=os.path.join(filedir, '../models/model.best.resnet50.hdf5'),
+    from_scratch=os.path.join(filedir, '../models/model.best.resnet50.hdf5'),
+    xception=os.path.join(filedir, '../models/model.best.resnet50.hdf5'),
+    vgg16=os.path.join(filedir, '../models/model.best.resnet50.hdf5'),
 )
 
 __model = None
@@ -126,7 +129,7 @@ class DogPredictor:
         return DogPredictor.__dog_names[maxidx]
 
 
-class KnowledgeTransfer(metaclass=ABC):
+class KnowledgeTransfer(ABC):
 
     @property
     @abstractmethod
