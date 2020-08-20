@@ -32,12 +32,12 @@ logger.addHandler(logging.NullHandler())
 filedir = os.path.dirname(__file__)
 
 DOG_CLASSES_PTH = os.path.join(filedir, './dog_classes_en.json')
-FACE_CLASSIFIER_PTH = os.path.join(filedir, '../haarcascades/haarcascade_frontalface_alt.xml')
+FACE_CLASSIFIER_PTH = os.path.join(filedir, '../haarcascade/haarcascade_frontalface_alt.xml')
 MODEL_PATHES = dict(
     resnet50=os.path.join(filedir, '../models/model.best.resnet50.hdf5'),
-    from_scratch=os.path.join(filedir, '../models/model.best.resnet50.hdf5'),
-    xception=os.path.join(filedir, '../models/model.best.resnet50.hdf5'),
-    vgg16=os.path.join(filedir, '../models/model.best.resnet50.hdf5'),
+    from_scratch=os.path.join(filedir, '../models/model.best.from_scratch.hdf5'),
+    xception=os.path.join(filedir, '../models/model.best.xception.hdf5'),
+    vgg16=os.path.join(filedir, '../models/model.best.vgg16.hdf5'),
 )
 
 __model = None
@@ -70,6 +70,7 @@ def dog_detector(img_path):
 def predict_dog_breed(img_pth, model='resnet50'):
     """
     """
+    global __model
     if not __model:
         __model = DogPredictor(model)
     __model.change_type(model)
@@ -103,7 +104,7 @@ class DogPredictor:
         if self.type == type:
             return
 
-        if type == 'restnet50':
+        if type == 'resnet50':
             self.tf_model = Resnet50()
         elif type == 'from_scratch':
             self.tf_model = NullTransfer()
@@ -113,7 +114,7 @@ class DogPredictor:
             self.tf_model = VGG16()
         else:
             raise ValueError
-        load_model(MODEL_PATHES.get(type))
+        self.load_model(MODEL_PATHES.get(type))
         self.type = type
 
     def load_model(self, pth):
@@ -133,8 +134,8 @@ class KnowledgeTransfer(ABC):
 
     @property
     @abstractmethod
-    def _model(self):
-        raise NotImplementedError
+    def model(self):
+        pass
 
     @abstractmethod
     def preprocess(self, image_path):
@@ -143,13 +144,17 @@ class KnowledgeTransfer(ABC):
     def transfer(self, inp, image_path=False):
         if image_path:
             inp = self.preprocess(inp)
-        return self._model.predict(inp)
+        return self.model.predict(inp)
 
 
 class VGG16(KnowledgeTransfer):
     def __init__(self):
         from keras.applications.vgg16 import VGG16 as VGG16Local
-        self._model = VGG16Local(weights='imagenet', include_top=False)
+        self.__model = VGG16Local(weights='imagenet', include_top=False)
+
+    @property
+    def model(self):
+        return self.__model
 
     def preprocess(self, image_path):
         return preprocess_image.preprocess_vgg16(image_path)
@@ -158,7 +163,11 @@ class VGG16(KnowledgeTransfer):
 class Resnet50(KnowledgeTransfer):
     def __init__(self):
         from keras.applications.resnet50 import ResNet50 as ResNetLocal
-        self._model = ResNetLocal(weights='imagenet', include_top=False)
+        self.__model = ResNetLocal(weights='imagenet', include_top=False)
+
+    @property
+    def model(self):
+        return self.__model
 
     def preprocess(self, image_path):
         return preprocess_image.preprocess_resnet50(image_path)
@@ -167,7 +176,11 @@ class Resnet50(KnowledgeTransfer):
 class Xception(KnowledgeTransfer):
     def __init__(self):
         from keras.applications.xception import Xception as XceptionLocal
-        self._model = XceptionLocal(weights='imagenet', include_top=False)
+        self.__model = XceptionLocal(weights='imagenet', include_top=False)
+
+    @property
+    def model(self):
+        return self.__model
 
     def preprocess(self, image_path):
         return preprocess_image.preprocess_xception(image_path, scale=True)
@@ -180,7 +193,11 @@ class NullModel:
 
 class NullTransfer(KnowledgeTransfer):
     def __init__(self):
-        self._model = NullModel()
+        self.__model = NullModel()
+
+    @property
+    def model(self):
+        return self.__model
 
     def preprocess(self, image_path):
         return preprocess_image.path_to_tensor(image_path)
