@@ -24,7 +24,7 @@ from keras.models import load_model
 import cv2
 
 # project imports
-import preprocess_image
+from source import preprocess_image
 
 # --------------------------------------------------------------------------------------------------
 # CONSTANTS AND MODULE-LVL REFERENCES
@@ -61,23 +61,29 @@ __ResNet50_model = ResNet50(weights='imagenet')
 # --------------------------------------------------------------------------------------------------
 
 
-def face_detector(img_path):
+def face_detector(img_arg):
     """
     loads image and detects faces in images and returns boolean whether a face was found or not.
 
     Parameters
     ----------
-    img_path: str
-        path to image
+    img_arg: str or filehandler
+        path to image or filelike object
 
     Returns
     -------
     bool
     """
-    # extract pre-trained face detector
+    if hasattr(img_arg, 'read') and hasattr(img_arg, 'seek'):
+        # jump to start of file
+        img_arg.seek(0)
+        # transform bytes
+        file_bytes = np.asarray(bytearray(img_arg.read()), dtype=np.uint8)
+        img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+    else:
+        img = cv2.imread(img_arg)
+    # initialize pre-trained face detector
     face_cascade = cv2.CascadeClassifier(FACE_CLASSIFIER_PTH)
-    # read image
-    img = cv2.imread(img_path)
     # transform to gray-scale
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     # detect faces if at least one detected return True
@@ -85,37 +91,37 @@ def face_detector(img_path):
     return len(faces) > 0
 
 
-def dog_detector(img_path):
+def dog_detector(img_arg):
     """
     loads image and uses resnet50-model trained on imagenet for detection of dogs. If a dog is contained in the image
     True will be returned; False otherwise.
 
     Parameters
     ----------
-    img_path: str
-        path to image
+    img_arg: str or filehandler
+        path to image or filehandler
 
     Returns
     -------
     bool
     """
-    img = preprocess_image.preprocess_resnet50(img_path)
+    img = preprocess_image.preprocess_resnet50(img_arg)
     # get index of maximum from prediction vector (most likely class)
     resnet50pred = np.argmax(__ResNet50_model.predict(img))
     # dog-classes are in imagenet between index 151 to 268
     return (resnet50pred <= 268) & (resnet50pred >= 151)
 
 
-def predict_dog_breed(img_pth, model='resnet50'):
+def predict_dog_breed(img_arg, model='resnet50'):
     """
     Loads an image of a dog, classifies it's breed and returnes it's breed name. If image doesn't contain a dog, the
     CNN will return the most likely dog class anyway.
 
     Parameters
     ----------
-    img_pth: str
-        path to image
-    model: str
+    img_arg: str or filehandler
+        path to image or filehandler
+    model: ['resnet50', 'from_scratch', 'xception', 'vgg16']
         trained CNN to be used for classification of the dog-breed
 
     Returns
@@ -127,29 +133,31 @@ def predict_dog_breed(img_pth, model='resnet50'):
     if not __model:
         __model = DogPredictor(model)
     __model.change_type(model)
-    return __model.predict_name(img_pth)
+    return __model.predict_name(img_arg)
 
 
-def classify_image(imgpth):
+def classify_image(img_arg, model='resnet50'):
     """
     identifies whether a dog or a human is in the image. If one is in the image the most likely dog-breed will be
     determined and message returned. If neither is the case a error-message will be returned.
 
     Parameters
     ----------
-    imgpth: str
+    img_arg: str
         path to the image
+    model: ['resnet50', 'from_scratch', 'xception', 'vgg16']
+        trained CNN to be used for classification of the dog-breed
 
     Returns
     -------
     None
     """
     # preprocess img
-    if dog_detector(imgpth):
-        breed = predict_dog_breed(imgpth)
+    if dog_detector(img_arg):
+        breed = predict_dog_breed(img_arg, model)
         print('Aawww!!! What a cutie! If that is not a %s!' % breed)
-    elif face_detector(imgpth):
-        breed = predict_dog_breed(imgpth)
+    elif face_detector(img_arg):
+        breed = predict_dog_breed(img_arg, model)
         print('You look like a %s! Are you sure you are a human and not a dog??' % breed)
     else:
         print('What is that?! Neither a dog nor a human - I am sure!')
@@ -245,8 +253,8 @@ class DogPredictor:
 
         Parameters
         ----------
-        inp: str
-            path to image
+        inp: str or filehandler
+            path to image or filehandler
 
         Returns
         -------
@@ -254,7 +262,7 @@ class DogPredictor:
             vector with probabilities of the dog-breed classes
         """
         # feed image to model used for knowledge transfer
-        knowledge = self.tf_model.transfer(inp, image_path=True)
+        knowledge = self.tf_model.transfer(inp, need_preprocessing=True)
         # the knowledge from previous model is feeded to main CNN
         return self.model.predict(knowledge)
 
@@ -264,8 +272,8 @@ class DogPredictor:
 
         Parameters
         ----------
-        inp: str
-            path to image
+        inp: str or filehandler
+            path to image or filehandler
 
         Returns
         -------
@@ -295,15 +303,15 @@ class KnowledgeTransfer(ABC):
         """ abstract method for preprocessing images based oon the model's needs """
         pass
 
-    def transfer(self, inp, image_path=False):
+    def transfer(self, inp, need_preprocessing=False):
         """
-
+        Apply the transfer model on the input.
 
         Parameters
         ----------
         inp: str or np.array
             path to image or already preprocessed image in form of an array
-        image_path: bool
+        need_preprocessing: bool
             whether input contains path to an image or is already preprocessed input
 
         Returns
@@ -311,7 +319,7 @@ class KnowledgeTransfer(ABC):
         np.array
             aggregated data passed through tf-model
         """
-        if image_path:
+        if need_preprocessing:
             inp = self.preprocess(inp)
         return self.model.predict(inp)
 

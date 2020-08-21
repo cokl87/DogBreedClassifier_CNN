@@ -17,8 +17,11 @@ import logging
 # 3rd party imports
 import numpy as np
 from keras.preprocessing import image
+from keras.applications.xception import preprocess_input as xception_preprocess
+from keras.applications.vgg16 import preprocess_input as vgg16_preprocess
+from keras.applications.resnet50 import preprocess_input as resnet50_preprocess
 from tqdm import tqdm
-from PIL import ImageFile
+from PIL import ImageFile, Image
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 # project imports
@@ -49,14 +52,14 @@ def scale_tensor(tensor):
     return tensor.astype('float32') / 255
 
 
-def path_to_tensor(img_path, scale=False):
+def path_to_tensor(img_arg, scale=False):
     """
     Loads a image and transforms it into a 4D-numpy of shape (1, 224, 224, 3) array with its RGB-values.
 
     Parameters
     ----------
-    img_path: str
-        path to the image to load
+    img_arg: filehandler or str
+        path to the image to load or filehandler dependent on read-argument
     scale: bool
         whether to scale the resulting values of the tensor to values between 0 and 1
 
@@ -64,14 +67,20 @@ def path_to_tensor(img_path, scale=False):
     -------
     np.array
     """
-    # loads RGB image as PIL.Image.Image type
-    img = image.load_img(img_path, target_size=(224, 224))
+    # if opened:
+    #     img = read_buffer(img_arg)
+    # else:
+    #     img = load_image(img_arg)
+    img = Image.open(img_arg)
+    img.convert('RGB')
+    img = img.resize((224, 224), Image.NEAREST)
+
     # convert PIL.Image.Image type to 3D tensor with shape (224, 224, 3)
-    x = image.img_to_array(img)
+    arr = image.img_to_array(img)
     if scale:
-        x = scale_tensor(x)
+        arr = scale_tensor(arr)
         # convert 3D tensor to 4D tensor with shape (1, 224, 224, 3) and return 4D tensor
-    return np.expand_dims(x, axis=0)
+    return np.expand_dims(arr, axis=0)
 
 
 def paths_to_tensor(img_paths, scale=False):
@@ -107,8 +116,7 @@ def preprocess_resnet50(img_path):
     -------
     np.array
     """
-    from keras.applications.resnet50 import preprocess_input
-    return preprocess_input(path_to_tensor(img_path, scale=False))
+    return resnet50_preprocess(path_to_tensor(img_path, scale=False))
 
 
 def preprocess_vgg16(img_path):
@@ -124,8 +132,7 @@ def preprocess_vgg16(img_path):
     -------
     np.array
     """
-    from keras.applications.vgg16 import preprocess_input
-    return preprocess_input(path_to_tensor(img_path, scale=False))
+    return vgg16_preprocess(path_to_tensor(img_path, scale=False))
 
 
 def preprocess_xception(img_path):
@@ -141,5 +148,4 @@ def preprocess_xception(img_path):
     -------
     np.array
     """
-    from keras.applications.xception import preprocess_input
-    return preprocess_input(path_to_tensor(img_path, scale=False))
+    return xception_preprocess(path_to_tensor(img_path, scale=False))
