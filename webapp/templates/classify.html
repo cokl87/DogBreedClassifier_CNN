@@ -22,13 +22,12 @@ What kind of dog is it?
 
 {% block content %}
 <div class="container">
-  <div class="row">
-    <div class="col">
-
-      <h1>Upload an image</h1>
-      <hr>
-
-      <form action="/classify-image" method="POST" enctype="multipart/form-data">
+  <h1>Upload an image</h1>
+  <hr>
+  <p>
+    <div class="row">
+      <div class="col">
+        <form action="/classify-image" method="POST" enctype="multipart/form-data">
 
         <div class="form-group">
 
@@ -51,21 +50,44 @@ What kind of dog is it?
 
         </div>
         <button type="submit" class="btn btn-primary">Run</button>
+        </form>
+      </div>
+    </div>
+  </p>
 
-      </form>
+  <p>
+    <div class="row">
+
+      <div class="col-4">
+        <h1>Your Results</h1>
+        <hr>
+        <img id='yourImage' src="" alt="Your Image">
+      </div>
+
+      <div class="col-8">
+        {% for idx, dog_img in dog_images %}
+        <img id="dogImg-{{idx}}" src="dog_img" alt="Dog Image {{idx}}">
+        {% endfor %}
+      </div>
 
     </div>
-  </div>
+  </p>
 </div>
+
+
 {% endblock %}
 
 
 {% block footer %}
 <script>
-  // Add the following code if you want the name of the file appear on select
+  // Make the file name appear on select
   $(".custom-file-input").on("change", function() {
     var fileName = $(this).val().split("\\").pop();
     $(this).siblings(".custom-file-label").addClass("selected").html(fileName);
   });
+
+  // Change src of yourImage to decoded bytestring
+  $("#yourImage").attr("src", "data:image/jpeg;base64,{{image}}");
 </script>
+<!-- $("#yourImage").attr("src", "data:image/jpg;base64,$( {{image}} )") -->
 {% endblock %}

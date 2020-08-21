@@ -18,28 +18,26 @@
 <body>
     <!--navbar links-->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
-   <a class="navbar-brand" href="#">Dog Breed Classifier</a>
-  <button class="navbar-toggler" type="button" data-toggle="collapse"
-  data-target="#navbarTogglerDemo02"
-  aria-controls="navbarTogglerDemo02" aria-expanded="false"
-  aria-label="Toggle navigation">
-    <span class="navbar-toggler-icon"></span>
-  </button>
+        <a class="navbar-brand" href="#">Dog Breed Classifier</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarTogglerDemo02"
+        aria-controls="navbarTogglerDemo02" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
 
-  <div class="collapse navbar-collapse" id="navbarTogglerDemo02">
-    <ul class="navbar-nav ml-auto mt-2 mt-lg-0">
-      <li class="nav-item">
-          <a class="nav-link" href="/cnn">Try it your self!</a>
-      </li>
-      <li class="nav-item">
-          <a class="nav-link" href="/statistics">Statistics</a>
-      </li>
-      <li class="nav-item">
-          <a class="nav-link" href="/code">Code</a>
-      </li>
-    </ul>
-  </div>
-</nav>
+        <div class="collapse navbar-collapse" id="navbarTogglerDemo02">
+            <ul class="navbar-nav ml-auto mt-2 mt-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link" href="/classify-image">Try it your self!</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/statistics">Statistics</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Code</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
 
     <!--jumbotron-->
     <div class="jumbotron">
@@ -47,11 +45,6 @@
             <h1 class="text-center">Dog Breed Classifier</h1>
             <p class="text-center">Determine which dog-breed you resemble the most</p>
             <hr>
-            <p class="text-center">
-                <a href="#" class="btn btn-danger btn-lg active" role="button" aria-pressed="true">
-                    Try it your self!
-                </a>
-            </p>
             {% block message %}
             {% endblock %}
         </div>
