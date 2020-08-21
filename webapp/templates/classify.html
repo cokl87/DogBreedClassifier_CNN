@@ -33,12 +33,12 @@ What kind of dog is it?
 
           <label>Select image</label>
           <div class="custom-file">
-            <input type="file" accept="image/*" class="custom-file-input" name="image" id="image">
+            <input type="file" required="required" accept="image/*" class="custom-file-input" name="image" id="image">
             <label class="custom-file-label" for="image">Select image...</label>
             <small id="fileHelp" class="form-text text-muted">Your image will not be stored.</small>
           </div>
 
-          <!--
+
           <label>Select Model</label>
           <select name="model" class="custom-select">
             <option selected value="resnet50">Resnet50</option>
@@ -46,7 +46,7 @@ What kind of dog is it?
             <option value="from_scratch">Without Knowledge Transfer</option>
           </select>
           <small id="modelHelp" class="form-text text-muted">Best classification results were made with model build upon
-            Resnet50. On Test Data it acchieved an accuracy of .......... %.</small> -->
+            Resnet50. On Test Data it acchieved an accuracy of .......... %.</small>
 
         </div>
         <button type="submit" class="btn btn-primary">Run</button>

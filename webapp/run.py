@@ -67,16 +67,18 @@ def classify_image():
     if request.method == 'POST':
         if request.files:
             img = request.files['image']
+            model = request.form.get('model')
+            logger.debug(model)
 
             # TODO: check image before further usage!!!!!!!
 
             bytes_image = BytesIO(img.read())
-            # TODO: change classification functions to work alsso with BytesIO-objects
-            # apply_cnn.classify_image(bytesImage)
+            apply_cnn.classify_image(bytes_image, model=model)
 
-            img_str = tensor_to_image_string(path_to_tensor(bytes_image.seek(0))[0])
+            bytes_image.seek(0)
+            # transform the image to how the CNN sees it
+            img_str = tensor_to_image_string(path_to_tensor(bytes_image)[0])
             return render_template('classify.html', image=img_str)
-
         else:
             logger.debug('No file uploaded')
     return render_template('classify.html')
