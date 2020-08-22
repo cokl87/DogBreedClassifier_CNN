@@ -38,7 +38,6 @@ What kind of dog is it?
             <small id="fileHelp" class="form-text text-muted">Your image will not be stored.</small>
           </div>
 
-
           <label>Select Model</label>
           <select name="model" class="custom-select">
             <option selected value="resnet50">Resnet50</option>
@@ -57,41 +56,69 @@ What kind of dog is it?
 
   <!-- hide block if no prediction done -->
   {% if image %}
-  <p>
-    <div class="row">
 
-      <!-- if an error occured don't show classification -->
-      {% if image_err %}
+  <div class="row">
 
-      <div class="col-12">
-        <h2 id="classificationErrorTitle">Your image caused an error...</h2>
-        <hr>
-        <p>We are verry sorry and will dig in, what caused this error. Did you check that your image was larger then
-        224x224 pixels and had only RGB-values (e.g. no transparency)?</p>
-      </div>
+    <!-- if an error occured don't show classification -->
+    {% if image_err %}
 
-      {% else %}
-
-      <div class="col-4">
-        <h2 id="yourImageTitle" class="text-left">This Image...</h2>
-        <hr>
-        <img id='yourImage' src="" alt="Your Image" class="img-fluid">
-      </div>
-
-      <div class="col-8">
-        <h2 id="classificationTitle" class="text-right">...looks like a {{ dog_name }}</h2>
-        <hr>
-
-        {% for dog_img in dog_images %}
-        <img id="dogImg-{{ loop.index0 }}" src="{{ dog_img }}" alt="Dog Image {{ loop.index0 }}" class="img-fluid">
-
-        {% endfor %}
-      </div>
-
-      {% endif %}
+    <div class="col-12">
+      <h2 id="classificationErrorTitle">Your image caused an error...</h2>
+      <hr>
+      <p>We are verry sorry and will dig in, what caused this error. Did you check that your image was larger then
+      224x224 pixels and had only RGB-values (e.g. no transparency)?</p>
     </div>
-  </p>
+
+    {% else %}
+
+    <div class="col-4">
+      <h2 id="yourImageTitle" class="text-left">This Image...</h2>
+      <hr>
+      <p>
+        <img id='yourImage' src="" alt="Your Image" class="img-fluid">
+      </p>
+    </div>
+
+    <div class="col-8">
+      <h2 id="classificationTitle" class="text-right">...looks like a {{ dog_name }}</h2>
+      <hr>
+      {% for dog_img in dog_images %}
+      <img id="dogImg-{{ loop.index0 }}" src="{{ dog_img }}" alt="Dog Image {{ loop.index0 }}" class="img-fluid">
+      {% endfor %}
+    </div>
+
+    {% endif %}
+  </div>
+
+  {% if species == 1 or species == 2 %}
+  <div class="row">
+    <div class="col-12">
+      <h2 class="text">Check out how sure the CNN is about the image's dog-breed</h2>
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th scope="col">#</th>
+            <th scope="col">Dog Breed</th>
+            <th scope="col">Probability [-]</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for dog_breed, probability in pred_array %}
+          <tr>
+            <th scope="row">{{ loop.index0 }}</th>
+            <td>{{ dog_breed }}</td>
+            <td>{{ probability }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <!-- end of hiding table -->
   {% endif %}
+  <!-- end of hiding whole prediction section -->
+  {% endif %}
+
 
 </div>
 
