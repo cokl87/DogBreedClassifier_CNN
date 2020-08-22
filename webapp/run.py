@@ -127,7 +127,7 @@ def classify_image():
             else:
                 # iterable needed. dog_name will be replaced in template via JavaScript, so None is fine.
                 dog_images = ()
-                top5 = ()
+                top10 = ()
                 dog_name = None
 
             # transform the image to how the CNN sees it
