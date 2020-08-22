@@ -88,6 +88,7 @@ def face_detector(img_arg):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     # detect faces if at least one detected return True
     faces = face_cascade.detectMultiScale(gray)
+    logger.debug('Found %i faces in image %s', len(faces), img_arg)
     return len(faces) > 0
 
 
@@ -109,10 +110,11 @@ def dog_detector(img_arg):
     # get index of maximum from prediction vector (most likely class)
     resnet50pred = np.argmax(__ResNet50_model.predict(img))
     # dog-classes are in imagenet between index 151 to 268
+    logger.debug('Resnet50 detected a dog: %s', ((resnet50pred <= 268) & (resnet50pred >= 151)))
     return (resnet50pred <= 268) & (resnet50pred >= 151)
 
 
-def predict_dog_breed(img_arg, model='resnet50'):
+def predict_dog_breed(img_arg, model='resnet50', onlybest=True, onlynames=True):
     """
     Loads an image of a dog, classifies it's breed and returnes it's breed name. If image doesn't contain a dog, the
     CNN will return the most likely dog class anyway.
@@ -123,44 +125,66 @@ def predict_dog_breed(img_arg, model='resnet50'):
         path to image or filehandler
     model: ['resnet50', 'from_scratch', 'xception', 'vgg16']
         trained CNN to be used for classification of the dog-breed
+    onlybest: bool
+        return only results from most likely prediction
+    onlynames: bool
+        return only dog-class-names sorted by likelihood
 
     Returns
     -------
-    str
-        name of the dog-breed
+    numpy.ndarray or string
+        if onlybest and onlynames = False returns np.ndarray of shape (133,) with named columns 'p', 'nr' and 'name'
+        if onlybest = True returns np.void with length 3 - prop, class-nr, class-name
+        if onlynames = True returns np.ndarray of shape (133,) - dog breed names sorted by likelihood
+        if onlybest and onlynames = True returns str with dog-breed-names of most likely dog
     """
     global __model
     if not __model:
         __model = DogPredictor(model)
     __model.change_type(model)
-    return __model.predict_name(img_arg)
+    logger.debug('Predicting dog breed with model: %s', __model.type)
+    return __model.predict(img_arg, onlybest=onlybest, onlynames=onlynames)
 
 
-def classify_image(img_arg, model='resnet50'):
+def classify_image(img_arg, model='resnet50', bestbreed_only=True, breedname_only=True):
     """
     identifies whether a dog or a human is in the image. If one is in the image the most likely dog-breed will be
     determined and message returned. If neither is the case a error-message will be returned.
 
     Parameters
     ----------
-    img_arg: str
-        path to the image
+    img_arg: str or filehandler
+        path to image or filehandler
     model: ['resnet50', 'from_scratch', 'xception', 'vgg16']
         trained CNN to be used for classification of the dog-breed
+    bestbreed_only: bool
+        return only results from most likely prediction
+    breedname_only: bool
+        return only dog-class-names sorted by likelihood
 
     Returns
     -------
-    None
+    tuple
+        tuple of size 2.
+        On idx 0 int inidcation dog=0, human=1 or other=2 is included
+        On idx 1 Dog-breed predictions are included or None if other. Dog-breed predictions can be either str if
+        bestbreed_only and breedname_only == True else it will be a numpy.array containing results (see documentation
+        of apply_cnn.DogPredictor.predict for further information.
+
     """
-    # preprocess img
+    species = breeds = None
     if dog_detector(img_arg):
-        breed = predict_dog_breed(img_arg, model)
-        print('Aawww!!! What a cutie! If that is not a %s!' % breed)
+        species = 0
+        breeds = predict_dog_breed(img_arg, model, onlybest=bestbreed_only, onlynames=breedname_only)
+        logger.debug("dog detected and it's breed classified...")
     elif face_detector(img_arg):
-        breed = predict_dog_breed(img_arg, model)
-        print('You look like a %s! Are you sure you are a human and not a dog??' % breed)
+        species = 1
+        breeds = predict_dog_breed(img_arg, model, onlybest=bestbreed_only, onlynames=breedname_only)
+        logger.debug('human detected and most resembling dog breed classified...')
     else:
-        print('What is that?! Neither a dog nor a human - I am sure!')
+        species = 2
+        logger.debug('Neither dog nor human detected')
+    return species, breeds
 
 
 class DogPredictor:
@@ -180,9 +204,9 @@ class DogPredictor:
     Methods
     -------
     change_type
-    load_model
     predict_props
     predict_name
+    predict
     """
 
     # load json will class-names
@@ -229,10 +253,10 @@ class DogPredictor:
             self.tf_model = VGG16()
         else:
             raise ValueError
-        self.load_model(MODEL_PATHES.get(model))
+        self.__load_model(MODEL_PATHES.get(model))
         self.type = model
 
-    def load_model(self, pth):
+    def __load_model(self, pth):
         """
         load stored CNN
 
@@ -254,12 +278,13 @@ class DogPredictor:
         Parameters
         ----------
         inp: str or filehandler
-            path to image or filehandler
+            path to image or filehandler or iterable of latter
 
         Returns
         -------
         np.array
             vector with probabilities of the dog-breed classes
+            shape (len(inp), 133)
         """
         # feed image to model used for knowledge transfer
         knowledge = self.tf_model.transfer(inp, need_preprocessing=True)
@@ -284,6 +309,49 @@ class DogPredictor:
         # get most likely index
         maxidx = np.argmax(props)
         return DogPredictor.__dog_names[maxidx]
+
+    def predict(self, inp, onlybest=True, onlynames=True):
+        """
+        main functions for outside usage. Predicts probabilites of dog-breeds based on input-image and returns output
+        as specified by kwargs. The returned ndarray has potentially the following names:
+        'p': predicted probability of class
+        'nr': class number (idx+1)
+        'name': dog breed name
+
+        Parameters
+        ----------
+        inp: str or filehandler
+            path to image or filehandler
+        onlybest: bool
+            return only results from most likely prediction
+        onlynames: bool
+            rreturn only dog-class-names sorted by likelihood
+
+        Returns
+        -------
+        numpy.ndarray or string
+            if onlybest and onlynames = False returns np.ndarray of shape (133,) with named columns 'p', 'nr' and 'name'
+            if onlybest = True returns np.void with length 3 - prop, class-nr, class-name
+            if onlynames = True returns np.ndarray of shape (133,) - dog breed names sorted by likelihood
+            if onlybest and onlynames = True returns str with dog-breed-names of most likely dog
+
+        """
+        # predict props of different classes, only one input assumed -> [0]
+        props = self.predict_props(inp)[0]
+        # NOT indices but indices +1
+        class_numbers = np.array(range(1, len(props) + 1))
+        # combine all information into rows (prop, class-nr, class-name)
+        arr = np.array(
+            list(zip(props, class_numbers, DogPredictor.__dog_names)),
+            dtype=[('p', 'f8'), ('nr', 'f8'), ('name', 'object')]
+        )
+        # sort by probability:
+        arr = arr[np.argsort(arr['p'])[-1::-1]]
+        if onlybest:
+            arr = arr[0]
+        if onlynames:
+            arr = arr['name']
+        return arr
 
 
 class KnowledgeTransfer(ABC):
