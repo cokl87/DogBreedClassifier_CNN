@@ -59,21 +59,22 @@ What kind of dog is it?
     <div class="row">
 
       <div class="col-4">
-        <h1>Your Results</h1>
+        <h1>This Image...</h1>
         <hr>
         <img id='yourImage' src="" alt="Your Image">
       </div>
 
       <div class="col-8">
-        {% for idx, dog_img in dog_images %}
-        <img id="dogImg-{{idx}}" src="dog_img" alt="Dog Image {{idx}}">
+        <h1>...looks like a {{ dog_name }}</h1>
+        <hr>
+        {% for dog_img in dog_images %}
+        <img id="dogImg-{{ loop.index0 }}" src="{{ dog_img }}" alt="Dog Image {{ loop.index0 }}">
         {% endfor %}
       </div>
 
     </div>
   </p>
 </div>
-
 
 {% endblock %}
 

@@ -11,8 +11,12 @@ run.py script for running flask-app
 # stamdard lib imports
 import os.path
 import logging
+import glob
+from random import sample
 from io import BytesIO
 from base64 import b64encode
+import sys
+sys.path.append('./..')
 
 # 3rd party imports
 from flask import Flask, render_template, request
@@ -31,6 +35,16 @@ from source.preprocess_image import path_to_tensor
 DEBUG = True
 HOST = '0.0.0.0'
 PORT = 3001
+
+# DOG_IMAGES_ROOT = os.path.join(
+#     os.path.dirname(os.path.abspath(__file__)),
+#     './static/img/dog_breeds'
+# )
+DOG_IMAGES_ROOT = './static/img/dog_breeds'
+
+# --------------------------------------------------------------------------------------------------
+# CONSTANTS
+# --------------------------------------------------------------------------------------------------
 
 app = Flask(__name__)
 # app.config["ALLOWED_IMAGE_EXTENSIONS"] = ["JPEG", "JPG", "PNG", "GIF"]
@@ -56,6 +70,29 @@ def tensor_to_image_string(array):
     return b64encode(buff.getvalue()).decode("utf-8")
 
 
+def get_dog_images(class_nr, number=3):
+    """
+    takes a dog-class number and returns n images of this dog
+
+    Parameters
+    ----------
+    class_nr: int
+    number: int
+
+    Returns
+    -------
+    list
+        list of img-pathes
+    """
+    # create filepat based on class-nr
+    dirfilepat = '%03i.*/*.jpg' % class_nr
+    # create path from static
+    dirfilepath = os.path.join(DOG_IMAGES_ROOT, dirfilepat)
+    # apply pattern and pick randomly n images
+    dog_images = glob.glob(dirfilepath)
+    return sample(dog_images, min(number, len(dog_images)))
+
+
 @app.route('/')
 @app.route('/index')
 def index():
@@ -72,15 +109,24 @@ def classify_image():
 
             # TODO: check image before further usage!!!!!!!
 
+            # classify image
             bytes_image = BytesIO(img.read())
-            apply_cnn.classify_image(bytes_image, model=model)
+            species, breed = apply_cnn.classify_image(bytes_image, model=model, breedname_only=False)
 
-            bytes_image.seek(0)
             # transform the image to how the CNN sees it
+            bytes_image.seek(0)
             img_str = tensor_to_image_string(path_to_tensor(bytes_image)[0])
-            return render_template('classify.html', image=img_str)
+            return render_template(
+                'classify.html',
+                image=img_str,
+                dog_images=get_dog_images(breed['nr']),
+                dog_name=breed['name'],
+                species=species,
+            )
+
         else:
             logger.debug('No file uploaded')
+
     return render_template('classify.html')
 
 
