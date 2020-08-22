@@ -22,7 +22,7 @@ What kind of dog is it?
 
 {% block content %}
 <div class="container">
-  <h1>Upload an image</h1>
+  <h2>Upload an image</h2>
   <hr>
   <p>
     <div class="row">
@@ -55,25 +55,44 @@ What kind of dog is it?
     </div>
   </p>
 
+  <!-- hide block if no prediction done -->
+  {% if image %}
   <p>
     <div class="row">
 
-      <div class="col-4">
-        <h1>This Image...</h1>
+      <!-- if an error occured don't show classification -->
+      {% if image_err %}
+
+      <div class="col-12">
+        <h2 id="classificationErrorTitle">Your image caused an error...</h2>
         <hr>
-        <img id='yourImage' src="" alt="Your Image">
+        <p>We are verry sorry and will dig in, what caused this error. Did you check that your image was larger then
+        224x224 pixels and had only RGB-values (e.g. no transparency)?</p>
+      </div>
+
+      {% else %}
+
+      <div class="col-4">
+        <h2 id="yourImageTitle" class="text-left">This Image...</h2>
+        <hr>
+        <img id='yourImage' src="" alt="Your Image" class="img-fluid">
       </div>
 
       <div class="col-8">
-        <h1>...looks like a {{ dog_name }}</h1>
+        <h2 id="classificationTitle" class="text-right">...looks like a {{ dog_name }}</h2>
         <hr>
+
         {% for dog_img in dog_images %}
-        <img id="dogImg-{{ loop.index0 }}" src="{{ dog_img }}" alt="Dog Image {{ loop.index0 }}">
+        <img id="dogImg-{{ loop.index0 }}" src="{{ dog_img }}" alt="Dog Image {{ loop.index0 }}" class="img-fluid">
+
         {% endfor %}
       </div>
 
+      {% endif %}
     </div>
   </p>
+  {% endif %}
+
 </div>
 
 {% endblock %}
@@ -89,6 +108,19 @@ What kind of dog is it?
 
   // Change src of yourImage to decoded bytestring
   $("#yourImage").attr("src", "data:image/jpeg;base64,{{image}}");
+
+  // Change titles of yourImage and classification according to species
+  if ({{ species }} == 0) {
+    $("#yourImageTitle").html("Aawwww!! What a cutie!");
+    $("#classificationTitle").html("This must be a {{ dog_name }}");
+
+  } else if ({{ species }} == 1) {
+    $("#yourImageTitle").html("Are you sure this is a human...");
+    $("#classificationTitle").html("...it looks rather like a {{ dog_name }}");
+  } else {
+
+    $("#classificationTitle").html("...does not contain any dog or human.");
+  }
+
 </script>
-<!-- $("#yourImage").attr("src", "data:image/jpg;base64,$( {{image}} )") -->
 {% endblock %}

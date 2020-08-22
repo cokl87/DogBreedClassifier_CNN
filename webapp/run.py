@@ -107,11 +107,25 @@ def classify_image():
             model = request.form.get('model')
             logger.debug(model)
 
-            # TODO: check image before further usage!!!!!!!
+            # TODO: Danger! check image before further usage!!!!!!!
 
             # classify image
             bytes_image = BytesIO(img.read())
-            species, breed = apply_cnn.classify_image(bytes_image, model=model, breedname_only=False)
+            try:
+                species, breed = apply_cnn.classify_image(bytes_image, model=model, breedname_only=False)
+            except Exception as e:
+                logger.error(e)
+                # raise ValueError(e)
+                return render_template('classify.html', image=True, image_err=True)
+
+            # if breed was not determined (e.g. species 3)
+            if breed is not None:
+                dog_images = get_dog_images(breed['nr'])
+                dog_name = breed['name']
+            else:
+                # iterable needed. dog_name will be replaced in template via JavaScript, so None is fine.
+                dog_images = ()
+                dog_name = None
 
             # transform the image to how the CNN sees it
             bytes_image.seek(0)
@@ -119,8 +133,8 @@ def classify_image():
             return render_template(
                 'classify.html',
                 image=img_str,
-                dog_images=get_dog_images(breed['nr']),
-                dog_name=breed['name'],
+                dog_images=dog_images,
+                dog_name=dog_name,
                 species=species,
             )
 
