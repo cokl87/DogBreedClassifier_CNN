@@ -1,7 +1,18 @@
 {% extends "base.html" %}
 
 
-{% block title %}Dog Breed Classifier{% endblock %}
+{% block title %}
+Dog Breed Classifier
+{% endblock %}
+
+
+{% block message %}
+<p class="text-center">
+    <a href="/classify-image" class="btn btn-danger btn-lg active" role="button" aria-pressed="true">
+        Try it your self!
+    </a>
+</p>
+{% endblock %}
 
 
 {% block content %}
@@ -18,24 +29,16 @@
     <!--top two charts-->
     <div class="row">
         <div class="col-6">
-            <div id="{{ids[0]}}"></div>
         </div>
         <div class="col-6">
-            <div id="{{ids[1]}}"></div>
         </div>
     </div>
 
     <!--bottom two charts-->
     <div class="row mb-6">
         <div class="col-6">
-            <div id="chart3">
-                <div id="{{ids[2]}}"></div>
-            </div>
         </div>
         <div class="col-6">
-            <div id="chart4">
-                <div id="{{ids[3]}}"></div>
-            </div>
         </div>
     </div>
 </div>
@@ -43,15 +46,4 @@
 
 
 {% block footer %}
-<script type="text/javascript">
-    // plots the figure with id
-    // id much match the div id above in the html
-    var figures = {{figuresJSON | safe}};
-    var ids = {{ids | safe}};
-    for(var i in figures) {
-        Plotly.plot(ids[i],
-            figures[i].data,
-            figures[i].layout || {});
-    }
-</script>
 {% endblock %}
