@@ -13,6 +13,7 @@ import os.path
 import logging
 import glob
 import sqlite3
+import json
 from functools import wraps
 from random import sample
 from io import BytesIO
@@ -24,6 +25,8 @@ sys.path.append('./..')
 from flask import Flask, render_template, request
 from keras.preprocessing.image import array_to_img
 import numpy as np
+import plotly
+import plotly.graph_objects as go
 
 # project imports
 from webapp.logging.log_config import config_logging
@@ -104,9 +107,10 @@ def connected(func):
     def decorated(*args, **kwargs):
         con = sqlite3.connect(DB_PTH)
         cur = con.cursor()
-        func(cur, *args, **kwargs)
+        result = func(cur, *args, **kwargs)
         con.commit()
         con.close()
+        return result
     return decorated
 
 
@@ -119,14 +123,23 @@ def write_class2db(cursor, name, species, dogbreed, model):
 
 
 @connected
-def write_props2db(cursor, querry_id, props):
-    # build list of
-    # querry_id = next(cursor.execute("SELECT last_insert_rowid()"))
-    querry_id = next(cursor.execute("SELECT max(qid) FROM %s" % CLASS_TABLE))[0]
+def write_props2db(cursor, querry_id, probs):
     column_str = 'qid,' + ', '.join(('p_%03i' % idx for idx in range(1, 134)))
     sql_str = "INSERT INTO %s (%s) VALUES (%s);" % (PROB_TABLE, column_str, ', '.join(('?' for _ in range(0, 133+1))))
-    t = (querry_id,) + tuple(props)
+    t = (querry_id,) + tuple(probs)
     cursor.execute(sql_str, t)
+
+
+@connected
+def write_class_and_props2db(cursor, name, species, dogbreed, model, probs):
+    write_class2db.__wrapped__(cursor, name, species, dogbreed, model)
+    querry_id = next(cursor.execute("SELECT max(qid) FROM %s" % CLASS_TABLE))[0]
+    write_props2db.__wrapped__(cursor, querry_id, probs)
+
+
+@connected
+def execute_querry(cursor, querry):
+    return [row for row in cursor.execute(querry)]
 
 
 @app.route('/')
@@ -164,8 +177,13 @@ def classify_image():
                 dog_images = get_dog_images(breed['nr'][0])
                 dog_name = breed['name'][0]
                 top10 = breed[['name', 'p']][:10]
-                write_class2db(name, species, breed['nr'][0], model)
-                write_props2db(None, breed[np.argsort(breed['nr'])]['p'])
+                write_class_and_props2db(
+                    name,
+                    species,
+                    breed['nr'][0],
+                    model,
+                    breed[np.argsort(breed['nr'])]['p']
+                )
             else:
                 # iterable needed. dog_name will be replaced in template via JavaScript, so None is fine.
                 write_class2db(name, species, None, model)
@@ -193,22 +211,63 @@ def classify_image():
 
 @app.route('/statistics')
 def stats():
-    # TODO: change render template and implement view
-    #figures = return_figures()
+    '''
+    # get data from db.classification
+    # create plotly plot for classified dogbreeds (two groups - humans, dogs)
+    # humans
+    hum_clss_breed, hum_clss_count = list(zip(
+        *execute_querry("SELECT dogbreed, COUNT(ALL) FROM %s WHERE species==1 GROUP BY dogbreed;" % CLASS_TABLE)
+    ))
+    #dogs
+    hdog_clss_breed, hdog_clss_count = list(zip(
+        *execute_querry("SELECT dogbreed, COUNT(ALL) FROM %s WHERE species==0 GROUP BY dogbreed;" % CLASS_TABLE)
+    ))
 
-    # plot ids for the html id tag
-    #ids = ['figure-{}'.format(i) for i, _ in enumerate(figures)]
+    # create plot for species
+    execute_querry("SELECT species, COUNT(ALL) FROM %s GROUP BY species;" % CLASS_TABLE)
 
-    # Convert the plotly figures to JSON for javascript in html template
-    #figuresJSON = json.dumps(figures, cls=plotly.utils.PlotlyJSONEncoder)
+    execute_querry('SELECT model, COUNT(ALL) FROM %s GROUP BY model;' % CLASS_TABLE)
 
 
-    # logger.info('upsi')
-    # TODO: does not work behind proxy
-    # ip_address = request.remote_addr
-    # logger.info(ip_address)
 
-    return render_template('index.html')  #, ids=ids, figuresJSON=figuresJSON)
+    logger.debug(human_clss)
+    logger.debug(list(zip(*human_clss)))
+
+    data = [
+        go.Bar(
+            x=[x for x in range(1, 134)],
+            y=[list(zip(*human_clss))],
+        )]
+    graphJSON = json.dumps(data, cls=plotly.utils.PlotlyJSONEncoder)
+    '''
+
+    # create result table: name - dogbreed-name - model
+    graphJSON = create_dogbreed_histogram()
+    logger.debug(graphJSON)
+
+    usr_results = execute_querry('SELECT name, dogbreed, model FROM %s WHERE name IS NOT NULL;' % CLASS_TABLE)
+
+    return render_template('statistics.html', graphJSON=graphJSON, results=usr_results)  #, ids=ids, figuresJSON=figuresJSON)
+
+
+def create_dogbreed_histogram():
+
+    hum_qres = execute_querry("SELECT dogbreed, COUNT(ALL) FROM %s WHERE species==1 GROUP BY dogbreed;" % CLASS_TABLE)
+    h_x, h_y = list(zip(*hum_qres)) if hum_qres else ((), ())
+    dog_qres = execute_querry("SELECT dogbreed, COUNT(ALL) FROM %s WHERE species==0 GROUP BY dogbreed;" % CLASS_TABLE)
+    d_x, d_y = list(zip(*dog_qres)) if dog_qres else ((), ())
+
+    graph = go.Figure()
+    graph.add_trace(go.Bar(x=h_x, y=h_y, name='humans'))
+    graph.add_trace(go.Bar(x=d_x, y=d_y, name='dogs'))
+    graph.update_layout(dict(
+        xaxis=dict(title='Dog Breed'),
+        yaxis=dict(title='Number of classifications'),
+        title='Number of Classifications per Dog Breed and Image-Type',
+        autosize=True,
+    ))
+
+    return json.dumps(graph, cls=plotly.utils.PlotlyJSONEncoder)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -218,6 +277,7 @@ def stats():
 
 def main():
     """ main routine """
+    sqlite3.register_adapter(np.int32, lambda x: int(x))
     app.run(host=HOST, port=PORT, debug=DEBUG)
 
 
