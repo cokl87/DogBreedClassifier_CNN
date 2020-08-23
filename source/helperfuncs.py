@@ -65,9 +65,9 @@ def create_new_maintable(db_pth, tablename, overwrite=False):
     con = sqlite3.connect(db_pth)
     cur = con.cursor()
     if overwrite:
-        cur.execute("DROP TABLE IF EXISTS %s" % tablename)
-    cur.execute("CREATE TABLE %s (id INT PRIMARY KEY NOT NULL, name TEXT, species INT NOT NULL, dogbreed INT NOT NULL)"
-                % tablename)
+        cur.execute("DROP TABLE IF EXISTS %s;" % tablename)
+    cur.execute("CREATE TABLE %s (qid INTEGER PRIMARY KEY, name TEXT, species INTEGER NOT NULL, "
+                "dogbreed INTEGER, model TEXT NOT NULL);" % tablename)
     con.commit()
     con.close()
 
@@ -77,9 +77,10 @@ def create_new_probtable(db_pth, tablename, overwrite=False):
     con = sqlite3.connect(db_pth)
     cur = con.cursor()
     if overwrite:
-        cur.execute("DROP TABLE IF EXISTS %s" % tablename)
-    ', p'
-    cur.execute("CREATE TABLE %s (id INT PRIMARY KEY NOT NULL, %s)" % (
+        cur.execute("DROP TABLE IF EXISTS %s;" % tablename)
+    cur.execute("CREATE TABLE %s (pid INTEGER PRIMARY KEY, qid INTEGER UNIQUE, %s);" % (
         tablename, ', '.join(('p_%03i REAL NOT NULL' % idx for idx in range(1, 134)))))
     con.commit()
     con.close()
+
+
