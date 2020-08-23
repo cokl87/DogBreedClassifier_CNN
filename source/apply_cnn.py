@@ -343,7 +343,7 @@ class DogPredictor:
         # combine all information into rows (prop, class-nr, class-name)
         arr = np.array(
             list(zip(props, class_numbers, DogPredictor.__dog_names)),
-            dtype=[('p', 'f8'), ('nr', 'f8'), ('name', 'object')]
+            dtype=[('p', 'f8'), ('nr', 'i'), ('name', 'object')]
         )
         # sort by probability:
         arr = arr[np.argsort(arr['p'])[-1::-1]]
