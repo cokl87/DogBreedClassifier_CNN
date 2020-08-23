@@ -115,10 +115,10 @@ def connected(func):
 
 
 @connected
-def write_class2db(cursor, name, species, dogbreed, model):
-    t = (name, species, dogbreed, model)
+def write_class2db(cursor, name, species, dogbreed_int, dogbreed_name, model):
+    t = (name, species, dogbreed_int, dogbreed_name, model)
     # do not specify qid to let the sqlite3 engine increment the id by one
-    sql_str = "INSERT INTO %s (name, species, dogbreed, model) VALUES (?,?,?,?);" % CLASS_TABLE
+    sql_str = "INSERT INTO %s (name, species, dogbreed_int, dogbreed_name, model) VALUES (?,?,?,?,?);" % CLASS_TABLE
     cursor.execute(sql_str, t)
 
 
@@ -131,8 +131,8 @@ def write_props2db(cursor, querry_id, probs):
 
 
 @connected
-def write_class_and_props2db(cursor, name, species, dogbreed, model, probs):
-    write_class2db.__wrapped__(cursor, name, species, dogbreed, model)
+def write_class_and_props2db(cursor, name, species, dogbreed_int, dogbreed_name, model, probs):
+    write_class2db.__wrapped__(cursor, name, species, dogbreed_int, dogbreed_name, model)
     querry_id = next(cursor.execute("SELECT max(qid) FROM %s" % CLASS_TABLE))[0]
     write_props2db.__wrapped__(cursor, querry_id, probs)
 
@@ -181,12 +181,13 @@ def classify_image():
                     name,
                     species,
                     breed['nr'][0],
+                    dog_name,
                     model,
                     breed[np.argsort(breed['nr'])]['p']
                 )
             else:
                 # iterable needed. dog_name will be replaced in template via JavaScript, so None is fine.
-                write_class2db(name, species, None, model)
+                write_class2db(name, species, None, None, model)
                 dog_images = ()
                 top10 = ()
                 dog_name = None
@@ -245,16 +246,18 @@ def stats():
     graphJSON = create_dogbreed_histogram()
     logger.debug(graphJSON)
 
-    usr_results = execute_querry('SELECT name, dogbreed, model FROM %s WHERE name IS NOT NULL;' % CLASS_TABLE)
+    usr_results = execute_querry('SELECT name, dogbreed_name, model FROM %s WHERE name IS NOT NULL;' % CLASS_TABLE)
 
     return render_template('statistics.html', graphJSON=graphJSON, results=usr_results)  #, ids=ids, figuresJSON=figuresJSON)
 
 
 def create_dogbreed_histogram():
 
-    hum_qres = execute_querry("SELECT dogbreed, COUNT(ALL) FROM %s WHERE species==1 GROUP BY dogbreed;" % CLASS_TABLE)
+    hum_qres = execute_querry(
+        "SELECT dogbreed_name, COUNT(ALL) FROM %s WHERE species==1 GROUP BY dogbreed_int;" % CLASS_TABLE)
     h_x, h_y = list(zip(*hum_qres)) if hum_qres else ((), ())
-    dog_qres = execute_querry("SELECT dogbreed, COUNT(ALL) FROM %s WHERE species==0 GROUP BY dogbreed;" % CLASS_TABLE)
+    dog_qres = execute_querry(
+        "SELECT dogbreed_name, COUNT(ALL) FROM %s WHERE species==0 GROUP BY dogbreed_int;" % CLASS_TABLE)
     d_x, d_y = list(zip(*dog_qres)) if dog_qres else ((), ())
 
     graph = go.Figure()
@@ -266,7 +269,6 @@ def create_dogbreed_histogram():
         title='Number of Classifications per Dog Breed and Image-Type',
         autosize=True,
     ))
-
     return json.dumps(graph, cls=plotly.utils.PlotlyJSONEncoder)
 
 

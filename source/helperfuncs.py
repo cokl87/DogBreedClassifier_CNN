@@ -67,7 +67,7 @@ def create_new_maintable(db_pth, tablename, overwrite=False):
     if overwrite:
         cur.execute("DROP TABLE IF EXISTS %s;" % tablename)
     cur.execute("CREATE TABLE %s (qid INTEGER PRIMARY KEY, name TEXT, species INTEGER NOT NULL, "
-                "dogbreed INTEGER, model TEXT NOT NULL);" % tablename)
+                "dogbreed_int INTEGER, dogbreed_name TEXT, model TEXT NOT NULL);" % tablename)
     con.commit()
     con.close()
 
