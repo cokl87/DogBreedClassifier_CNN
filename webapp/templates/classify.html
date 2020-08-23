@@ -27,27 +27,37 @@ What kind of dog is it?
   <p>
     <div class="row">
       <div class="col">
+
         <form action="/classify-image" method="POST" enctype="multipart/form-data">
 
         <div class="form-group">
-
-          <label>Select image</label>
+        <label class="form-group-label">Select an Image</label>
           <div class="custom-file">
             <input type="file" required="required" accept="image/*" class="custom-file-input" name="image" id="image">
             <label class="custom-file-label" for="image">Select image...</label>
             <small id="fileHelp" class="form-text text-muted">Your image will not be stored.</small>
           </div>
+        </div>
 
-          <label>Select Model</label>
-          <select name="model" class="custom-select">
+        <div class="form-group">
+          <label class="form-group-label" for="modsel">Select Model</label>
+          <select name="model" class="custom-select" id="modsel">
             <option selected value="resnet50">Resnet50</option>
             <option value="vgg16">VGG16</option>
             <option value="from_scratch">Without Knowledge Transfer</option>
           </select>
           <small id="modelHelp" class="form-text text-muted">Best classification results were made with model build upon
             Resnet50. On Test Data it acchieved an accuracy of .......... %.</small>
-
         </div>
+
+        <div class="form-group" id="test">
+          <label class="form-group-label" for="name">Choose a Name</label>
+          <input type="text" class="from-control" name="name" id="name" placeholder="Optional...">
+
+          <small id="nameHelp" class="form-text text-muted">If you want your result to be displayed in the statistics section - otherwise leave bank</small>
+        </div>
+
+
         <button type="submit" class="btn btn-primary">Run</button>
         </form>
       </div>
@@ -91,7 +101,7 @@ What kind of dog is it?
   </div>
 
   {% if species == 1 or species == 0 %}
-  <div class="row">
+  <div class="row mb-6">
     <div class="col-12">
       <h2 class="text">Check out how sure the CNN is about the image's dog-breed</h2>
       <table class="table table-striped">
@@ -130,6 +140,7 @@ What kind of dog is it?
   // Make the file name appear on select
   $(".custom-file-input").on("change", function() {
     var fileName = $(this).val().split("\\").pop();
+    //$(#image).attr("placeholder", fileName)
     $(this).siblings(".custom-file-label").addClass("selected").html(fileName);
   });
 

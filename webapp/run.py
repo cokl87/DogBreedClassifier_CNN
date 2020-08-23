@@ -154,11 +154,9 @@ def classify_image():
         if request.files:
             img = request.files['image']
             model = request.form.get('model', '')
-            # Not yet implemented but needed for DataBase (allowed to be None)
-            name = request.form.get('name')
-            if name is not None:
-                name.translate({ord(x): '' for x in ';,()"\''})
-            logger.debug(name)
+            # if name is empty string or empty after removal of unwanted character None will be inserted for db
+            name = request.form.get('name').translate({ord(x): '' for x in ';,()"\''}) or None
+            logger.debug(name, type(name))
 
             # TODO: Danger! check image before further usage!!!!!!!
 
