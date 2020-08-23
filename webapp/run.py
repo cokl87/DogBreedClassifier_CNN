@@ -42,22 +42,20 @@ DEBUG = True
 HOST = '0.0.0.0'
 PORT = 3001
 
-# DOG_IMAGES_ROOT = os.path.join(
-#     os.path.dirname(os.path.abspath(__file__)),
-#     './static/img/dog_breeds'
-# )
 DOG_IMAGES_ROOT = './static/img/dog_breeds'
 DB_PTH = './classifications.sqlite3'
 PROB_TABLE = 'probs'
 CLASS_TABLE = 'queries'
 
-# --------------------------------------------------------------------------------------------------
-# CONSTANTS
-# --------------------------------------------------------------------------------------------------
 
 app = Flask(__name__)
 # app.config["ALLOWED_IMAGE_EXTENSIONS"] = ["JPEG", "JPG", "PNG", "GIF"]
 # app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024
+
+
+# --------------------------------------------------------------------------------------------------
+# FUNCTIONS
+# --------------------------------------------------------------------------------------------------
 
 
 def tensor_to_image_string(array):
@@ -142,10 +140,64 @@ def execute_querry(cursor, querry):
     return [row for row in cursor.execute(querry)]
 
 
+def create_dogbreed_histogram():
+
+    hum_qres = execute_querry(
+        "SELECT dogbreed_name, COUNT(ALL) FROM %s WHERE species==1 GROUP BY dogbreed_int;" % CLASS_TABLE)
+    h_x, h_y = list(zip(*hum_qres)) if hum_qres else ((), ())
+    dog_qres = execute_querry(
+        "SELECT dogbreed_name, COUNT(ALL) FROM %s WHERE species==0 GROUP BY dogbreed_int;" % CLASS_TABLE)
+    d_x, d_y = list(zip(*dog_qres)) if dog_qres else ((), ())
+
+    graph = go.Figure()
+    graph.add_trace(go.Bar(x=h_x, y=h_y, name='humans'))
+    graph.add_trace(go.Bar(x=d_x, y=d_y, name='dogs'))
+    graph.update_layout(dict(
+        xaxis=dict(title='Dog Breed', tickangle=30),
+        yaxis=dict(title='Number of classifications'),
+        title='Number of Classifications per Dog Breed and Image-Type',
+        autosize=True,
+    ))
+    return json.dumps(graph, cls=plotly.utils.PlotlyJSONEncoder)
+
+
+def create_species_pie():
+    spec_qres = execute_querry("SELECT species, COUNT(ALL) FROM %s GROUP BY species;" % CLASS_TABLE)
+    species, counts = list(zip(*spec_qres)) if spec_qres else ((), ())
+    label_mapper = {0: 'dogs', 1: 'humans', 2: 'other'}
+    graph = go.Figure()
+    graph.add_trace(go.Pie(labels=[label_mapper.get(spec) for spec in species], values=counts))
+    graph.update_layout(dict(
+        title='Uploaded Image Content',
+    ))
+    return json.dumps(graph, cls=plotly.utils.PlotlyJSONEncoder)
+
+
+def create_models_pie():
+    model_qres = execute_querry('SELECT model, COUNT(ALL) FROM %s GROUP BY model;' % CLASS_TABLE)
+    models, counts = list(zip(*model_qres)) if model_qres else ((), ())
+    graph = go.Figure()
+    graph.add_trace(go.Pie(labels=models, values=counts))
+    graph.update_layout(dict(
+        title='Model used for classification',
+    ))
+    return json.dumps(graph, cls=plotly.utils.PlotlyJSONEncoder)
+
+
+# --------------------------------------------------------------------------------------------------
+# ROUTES
+# --------------------------------------------------------------------------------------------------
+
+
 @app.route('/')
 @app.route('/index')
 def index():
     return render_template('index.html')
+
+
+@app.route('/code')
+def code():
+    return render_template('code.html')
 
 
 @app.route('/classify-image', methods=['GET', 'POST'])
@@ -229,51 +281,6 @@ def stats():
         speciesPie=json_species_pie,
         results=usr_results
     )
-
-
-def create_dogbreed_histogram():
-
-    hum_qres = execute_querry(
-        "SELECT dogbreed_name, COUNT(ALL) FROM %s WHERE species==1 GROUP BY dogbreed_int;" % CLASS_TABLE)
-    h_x, h_y = list(zip(*hum_qres)) if hum_qres else ((), ())
-    dog_qres = execute_querry(
-        "SELECT dogbreed_name, COUNT(ALL) FROM %s WHERE species==0 GROUP BY dogbreed_int;" % CLASS_TABLE)
-    d_x, d_y = list(zip(*dog_qres)) if dog_qres else ((), ())
-
-    graph = go.Figure()
-    graph.add_trace(go.Bar(x=h_x, y=h_y, name='humans'))
-    graph.add_trace(go.Bar(x=d_x, y=d_y, name='dogs'))
-    graph.update_layout(dict(
-        xaxis=dict(title='Dog Breed', tickangle=30),
-        yaxis=dict(title='Number of classifications'),
-        title='Number of Classifications per Dog Breed and Image-Type',
-        autosize=True,
-    ))
-    return json.dumps(graph, cls=plotly.utils.PlotlyJSONEncoder)
-
-
-def create_species_pie():
-    spec_qres = execute_querry("SELECT species, COUNT(ALL) FROM %s GROUP BY species;" % CLASS_TABLE)
-    species, counts = list(zip(*spec_qres)) if spec_qres else ((), ())
-    label_mapper = {0: 'dogs', 1: 'humans', 2: 'other'}
-    graph = go.Figure()
-    graph.add_trace(go.Pie(labels=[label_mapper.get(spec) for spec in species], values=counts))
-    graph.update_layout(dict(
-        title='Uploaded Image Content',
-    ))
-    return json.dumps(graph, cls=plotly.utils.PlotlyJSONEncoder)
-
-
-def create_models_pie():
-    model_qres = execute_querry('SELECT model, COUNT(ALL) FROM %s GROUP BY model;' % CLASS_TABLE)
-    models, counts = list(zip(*model_qres)) if model_qres else ((), ())
-    graph = go.Figure()
-    graph.add_trace(go.Pie(labels=models, values=counts))
-    graph.update_layout(dict(
-        title='Model used for classification',
-    ))
-    return json.dumps(graph, cls=plotly.utils.PlotlyJSONEncoder)
-
 
 # --------------------------------------------------------------------------------------------------
 # MAIN LOGIC
