@@ -12,6 +12,8 @@ run.py script for running flask-app
 import os.path
 import logging
 import glob
+import sqlite3
+from functools import wraps
 from random import sample
 from io import BytesIO
 from base64 import b64encode
@@ -21,6 +23,7 @@ sys.path.append('./..')
 # 3rd party imports
 from flask import Flask, render_template, request
 from keras.preprocessing.image import array_to_img
+import numpy as np
 
 # project imports
 from webapp.logging.log_config import config_logging
@@ -41,6 +44,9 @@ PORT = 3001
 #     './static/img/dog_breeds'
 # )
 DOG_IMAGES_ROOT = './static/img/dog_breeds'
+DB_PTH = './classifications.sqlite3'
+PROB_TABLE = 'probs'
+CLASS_TABLE = 'queries'
 
 # --------------------------------------------------------------------------------------------------
 # CONSTANTS
@@ -93,6 +99,36 @@ def get_dog_images(class_nr, number=3):
     return sample(dog_images, min(number, len(dog_images)))
 
 
+def connected(func):
+    @wraps(func)
+    def decorated(*args, **kwargs):
+        con = sqlite3.connect(DB_PTH)
+        cur = con.cursor()
+        func(cur, *args, **kwargs)
+        con.commit()
+        con.close()
+    return decorated
+
+
+@connected
+def write_class2db(cursor, name, species, dogbreed, model):
+    t = (name, species, dogbreed, model)
+    # do not specify qid to let the sqlite3 engine increment the id by one
+    sql_str = "INSERT INTO %s (name, species, dogbreed, model) VALUES (?,?,?,?);" % CLASS_TABLE
+    cursor.execute(sql_str, t)
+
+
+@connected
+def write_props2db(cursor, querry_id, props):
+    # build list of
+    # querry_id = next(cursor.execute("SELECT last_insert_rowid()"))
+    querry_id = next(cursor.execute("SELECT max(qid) FROM %s" % CLASS_TABLE))[0]
+    column_str = 'qid,' + ', '.join(('p_%03i' % idx for idx in range(1, 134)))
+    sql_str = "INSERT INTO %s (%s) VALUES (%s);" % (PROB_TABLE, column_str, ', '.join(('?' for _ in range(0, 133+1))))
+    t = (querry_id,) + tuple(props)
+    cursor.execute(sql_str, t)
+
+
 @app.route('/')
 @app.route('/index')
 def index():
@@ -104,8 +140,12 @@ def classify_image():
     if request.method == 'POST':
         if request.files:
             img = request.files['image']
-            model = request.form.get('model')
-            logger.debug(model)
+            model = request.form.get('model', '')
+            # Not yet implemented but needed for DataBase (allowed to be None)
+            name = request.form.get('name')
+            if name is not None:
+                name.translate({ord(x): '' for x in ';,()"\''})
+            logger.debug(name)
 
             # TODO: Danger! check image before further usage!!!!!!!
 
@@ -124,8 +164,11 @@ def classify_image():
                 dog_images = get_dog_images(breed['nr'][0])
                 dog_name = breed['name'][0]
                 top10 = breed[['name', 'p']][:10]
+                write_class2db(name, species, breed['nr'][0], model)
+                write_props2db(None, breed[np.argsort(breed['nr'])]['p'])
             else:
                 # iterable needed. dog_name will be replaced in template via JavaScript, so None is fine.
+                write_class2db(name, species, None, model)
                 dog_images = ()
                 top10 = ()
                 dog_name = None
