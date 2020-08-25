@@ -114,8 +114,8 @@ Contains Intel's haarcascade-classifier used for detection of human-faces in ima
 
 
 ## Licensing, Authors, Acknowledgements
-The project was part of the [Udacity's DataScientist program]('https://www.udacity.com/course/data-scientist-nanodegree--nd025').
-The html-version of the [notebook]('./webapp/static/notebook') included in the code.html template, is a cleaned version 
+The project was part of the [Udacity's DataScientist program](https://www.udacity.com/course/data-scientist-nanodegree--nd025).
+The html-version of the [notebook](./webapp/static/notebook) included in the code.html template, is a cleaned version 
 of a project of Udacity in which I designed and trained the CNNs.
 
 The webapp uses for detection of human-faces Intel's haarcascade-classifier. Consider it's 
