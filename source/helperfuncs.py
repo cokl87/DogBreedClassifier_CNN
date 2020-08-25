@@ -60,7 +60,7 @@ def count_dogbreed_images(img_dir):
     return ndogs
 
 
-def create_new_maintable(db_pth, tablename, overwrite=False):
+def create_new_maintable(db_pth='./classifications.sqlite3', tablename='queries', overwrite=False):
     """ create main database-table for webapp - careful with overwrite-arg """
     con = sqlite3.connect(db_pth)
     cur = con.cursor()
@@ -72,7 +72,7 @@ def create_new_maintable(db_pth, tablename, overwrite=False):
     con.close()
 
 
-def create_new_probtable(db_pth, tablename, overwrite=False):
+def create_new_probtable(db_pth='./classifications.sqlite3', tablename='probs', overwrite=False):
     """ create secondary-table for webapp - careful with overwrite-arg """
     con = sqlite3.connect(db_pth)
     cur = con.cursor()
