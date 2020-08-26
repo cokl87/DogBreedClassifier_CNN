@@ -1,4 +1,15 @@
+# virtualenvs
 **/venv/*
-*.log
+
+# file ending .log
+*.log*
+
+# all files starting with dot except gitignore
 **/.*
 !.gitignore
+
+# compiled python code
+*.pyc
+
+# databases
+*.sqlite3
