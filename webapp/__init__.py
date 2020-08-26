@@ -8,6 +8,10 @@ author: kornel
 """
 
 from flask import Flask
+# configure tensorflow for limiting memory used
+import tensorflow as tf
+tf.config.threading.set_intra_op_parallelism_threads(1)
+tf.config.threading.set_inter_op_parallelism_threads(1)
 
 # create app object
 app = Flask(__name__)
