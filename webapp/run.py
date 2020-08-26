@@ -101,8 +101,23 @@ def get_dog_images(class_nr, number=3):
 
 
 def connected(func):
+    """
+    wrapper-function for wrapping sql-queries to ensure db-connection and closing of the db.
+    """
     @wraps(func)
     def decorated(*args, **kwargs):
+        """
+        Connect to Database and give cursor-object to wrapped function. Close DB after database commit.
+
+        Parameters
+        ----------
+        args
+        kwargs
+
+        Returns
+        -------
+        return value from wrapped function
+        """
         con = sqlite3.connect(DB_PTH)
         cur = con.cursor()
         result = func(cur, *args, **kwargs)
@@ -114,6 +129,27 @@ def connected(func):
 
 @connected
 def write_class2db(cursor, name, species, dogbreed_int, dogbreed_name, model):
+    """
+    write entry to query-table.
+
+    Parameters
+    ----------
+    cursor: cursor-obj
+    name: str or None
+        value for name-attribute
+    species: int
+        value for species-attribute
+    dogbreed_int: int
+        value for dogbreed_int-attribute
+    dogbreed_name: str
+        value for dogbreed_name-attribute
+    model: str
+        value for model-attribute
+
+    Returns
+    -------
+    None
+    """
     t = (name, species, dogbreed_int, dogbreed_name, model)
     # do not specify qid to let the sqlite3 engine increment the id by one
     sql_str = "INSERT INTO %s (name, species, dogbreed_int, dogbreed_name, model) VALUES (?,?,?,?,?);" % CLASS_TABLE
@@ -122,6 +158,21 @@ def write_class2db(cursor, name, species, dogbreed_int, dogbreed_name, model):
 
 @connected
 def write_props2db(cursor, querry_id, probs):
+    """
+    write entry to property-table.
+
+    Parameters
+    ----------
+    cursor: cursor-obj
+    querry_id: int
+        key for querry-table
+    probs: iterable
+        iterable of length 133 with prediction probabilities for different classes
+
+    Returns
+    -------
+    None
+    """
     column_str = 'qid,' + ', '.join(('p_%03i' % idx for idx in range(1, 134)))
     sql_str = "INSERT INTO %s (%s) VALUES (%s);" % (PROB_TABLE, column_str, ', '.join(('?' for _ in range(0, 133+1))))
     t = (querry_id,) + tuple(probs)
@@ -130,6 +181,24 @@ def write_props2db(cursor, querry_id, probs):
 
 @connected
 def write_class_and_props2db(cursor, name, species, dogbreed_int, dogbreed_name, model, probs):
+    """
+    write entry into query and in property table.
+
+    Parameters
+    ----------
+    cursor: cursor-obj
+    name: str
+    species: int
+    dogbreed_int: int
+    dogbreed_name: str
+    model: str
+    probs: iterable
+        iterable with floats of length 133
+
+    Returns
+    -------
+    None
+    """
     write_class2db.__wrapped__(cursor, name, species, dogbreed_int, dogbreed_name, model)
     querry_id = next(cursor.execute("SELECT max(qid) FROM %s" % CLASS_TABLE))[0]
     write_props2db.__wrapped__(cursor, querry_id, probs)
@@ -137,11 +206,31 @@ def write_class_and_props2db(cursor, name, species, dogbreed_int, dogbreed_name,
 
 @connected
 def execute_querry(cursor, querry):
+    """
+    execute sql-querry str
+
+    Parameters
+    ----------
+    cursor: cursor-obj
+    querry: str
+        sql-querry
+
+    Returns
+    -------
+    result rows
+    """
     return [row for row in cursor.execute(querry)]
 
 
 def create_dogbreed_histogram():
+    """
+    create a plotly bar chart ofclassified dog-breeds
 
+    Returns
+    -------
+    str
+        json-representation of chart
+    """
     hum_qres = execute_querry(
         "SELECT dogbreed_name, COUNT(ALL) FROM %s WHERE species==1 GROUP BY dogbreed_int;" % CLASS_TABLE)
     h_x, h_y = list(zip(*hum_qres)) if hum_qres else ((), ())
@@ -162,6 +251,14 @@ def create_dogbreed_histogram():
 
 
 def create_species_pie():
+    """
+    create a plotly pie chart of species detected in images
+
+    Returns
+    -------
+    str
+        json-representation of chart
+    """
     spec_qres = execute_querry("SELECT species, COUNT(ALL) FROM %s GROUP BY species;" % CLASS_TABLE)
     species, counts = list(zip(*spec_qres)) if spec_qres else ((), ())
     label_mapper = {0: 'dogs', 1: 'humans', 2: 'other'}
@@ -174,6 +271,14 @@ def create_species_pie():
 
 
 def create_models_pie():
+    """
+    create a plotly pie chart of models used in classifications
+
+    Returns
+    -------
+    str
+        json-representation of chart
+    """
     model_qres = execute_querry('SELECT model, COUNT(ALL) FROM %s GROUP BY model;' % CLASS_TABLE)
     models, counts = list(zip(*model_qres)) if model_qres else ((), ())
     graph = go.Figure()
