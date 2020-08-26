@@ -18,39 +18,35 @@ from functools import wraps
 from random import sample
 from io import BytesIO
 from base64 import b64encode
-import sys
-sys.path.append('./..')
 
 # 3rd party imports
-from flask import Flask, render_template, request
+from flask import render_template, request
 from keras.preprocessing.image import array_to_img
 import numpy as np
 import plotly
 import plotly.graph_objects as go
 
 # project imports
-from webapp.logging.log_config import config_logging
+from webapp import app
 import source.apply_cnn as apply_cnn
 from source.preprocess_image import path_to_tensor
+
+# configure logging
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
+
+# configure sqlite3 adapter for numpy-ints
+sqlite3.register_adapter(np.int32, lambda x: int(x))
 
 
 # --------------------------------------------------------------------------------------------------
 # CONSTANTS
 # --------------------------------------------------------------------------------------------------
 
-DEBUG = True
-HOST = '0.0.0.0'
-PORT = 3001
-
-DOG_IMAGES_ROOT = './static/img/dog_breeds'
-DB_PTH = './classifications.sqlite3'
+DOG_IMAGES_ROOT = './webapp/static/img/dog_breeds'
+DB_PTH = './webapp/classifications.sqlite3'
 PROB_TABLE = 'probs'
 CLASS_TABLE = 'queries'
-
-
-app = Flask(__name__)
-# app.config["ALLOWED_IMAGE_EXTENSIONS"] = ["JPEG", "JPG", "PNG", "GIF"]
-# app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024
 
 
 # --------------------------------------------------------------------------------------------------
@@ -95,8 +91,10 @@ def get_dog_images(class_nr, number=3):
     dirfilepat = '%03i.*/*.jpg' % class_nr
     # create path from static
     dirfilepath = os.path.join(DOG_IMAGES_ROOT, dirfilepat)
-    # apply pattern and pick randomly n images
+    # apply pattern
     dog_images = glob.glob(dirfilepath)
+    # make relative to this files dir and pick randomly n images
+    dog_images = [os.path.relpath(dopi, os.path.dirname(__file__)) for dopi in dog_images]
     return sample(dog_images, min(number, len(dog_images)))
 
 
@@ -313,7 +311,7 @@ def classify_image():
             model = request.form.get('model', '')
             # if name is empty string or empty after removal of unwanted character None will be inserted for db
             name = request.form.get('name').translate({ord(x): '' for x in ';,()"\''}) or None
-            logger.debug(name, type(name))
+            logger.debug('user-name: %s, data-type: %s', name, type(name))
 
             # TODO: Danger! check image before further usage!!!!!!!
 
@@ -360,7 +358,7 @@ def classify_image():
             )
 
         else:
-            logger.debug('No file uploaded')
+            logger.info('No file uploaded')
 
     return render_template('classify.html')
 
@@ -386,24 +384,3 @@ def stats():
         speciesPie=json_species_pie,
         results=usr_results
     )
-
-# --------------------------------------------------------------------------------------------------
-# MAIN LOGIC
-# --------------------------------------------------------------------------------------------------
-
-
-def main():
-    """ main routine """
-    sqlite3.register_adapter(np.int32, lambda x: int(x))
-    app.run(host=HOST, port=PORT, debug=DEBUG)
-
-
-if __name__ == '__main__':
-    # configure logging
-    config_logging(
-        os.path.join(os.path.dirname(__file__), './logging/logging.json')
-    )
-    logger = logging.getLogger(__name__)
-    # call main routine
-    logger.info('Starting web-app...')
-    main()
