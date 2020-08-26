@@ -24,25 +24,27 @@ Dog Breed Classifier
     <div class="col-12">
 
       <h2>Project Motivation</h2>
-      <p>The goal of this project was to build a convolutional neural network (CNN) that classifies images of dogs,
-        regarding the dog breed they depict. 8351 images of dogs were available for training and testing of the CNN.
-        This is a rather small dataset for optimizing millions of weights needed within a CNN and to achieve good final
-        classification results. Therefor it was intended to make use of Transfer Learning.<br>
+      <p>The goal of this project was to build convolutional neural networks (CNN) that classifies images of dogs,
+        regarding the dog breed they depict. The final trained models are now deployed in this webapp where you can
+        upload your own images of dogs or humans and see whether they contain a dog or a human and which dog-breed they
+        resemble the most.
+      </p>
+      <p>
+        For training and validating of the CNNs 8351 images of dogs were available. This is a rather small dataset for
+        optimizing millions of weights needed within a CNN and to achieve good final classification results. Therefor
+        it was intended to make use of Transfer Learning.<br>
         In Transfer Learning a pre-trained model is used, which is able to classify similar objects, and it's knowledge
         in form of the pretrained weights and the architecture is used as input to the final network-architecture.
       </p>
       <p>
-        In this project models trained on Imagenet were used for Transfer Learning. Imagenet is a DataSet containing
-        millions of images depicting 1000 different classes, including 120-dog-classes which is ideal for the project's
-        goals. Because of the small DataSet and the similarity between our classification goal and the classes used in
-        training these CNNs, the end of these pre-trained models were simply 'cut off' without readjusting their
-        weights. The ends are replaced by an own set of Dense layers mapping to the final desired 133 dog-breed
-        classes. In parts also additional convolutional layers were added. You can see the individual architectures of
-        the final 'on top' models in the export of the <a href="./code#from_scratch">jupyter notebook</a>.
-      </p>
-      <p>
-        The final trained models are now deployed in this webapp where you can upload your own images of dogs or humans
-        and see whether they contain a dog or a human and which dog-breed it resembles the most.
+        In this project pretrained models, trained on Imagenet were used for Transfer Learning. Imagenet is a DataSet
+        containing millions of images depicting 1000 different classes, including 120-dog-classes which is ideal for
+        the project's goals. Because of the small DataSet and the similarity between our classification goal and the
+        classes used in training these CNNs, the end of these pre-trained models were simply 'cut off' without
+        readjusting their weights. The ends are replaced by an own set of Dense layers mapping to the final desired 133
+        dog-breed classes. In parts also additional convolutional layers were added. You can see the individual
+        architectures of the final 'on top' models in the export of the <a href="./code#from_scratch">
+        jupyter notebook</a>.
       </p>
 
       <h2>Results</h2>
