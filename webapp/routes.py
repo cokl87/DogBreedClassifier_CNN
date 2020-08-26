@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-run.py script for running flask-app
+routes.py script for running flask-app
 """
 
 # --------------------------------------------------------------------------------------------------

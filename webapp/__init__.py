@@ -15,4 +15,4 @@ app = Flask(__name__)
 # app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024
 
 # import routes
-from webapp import run
+from webapp import routes

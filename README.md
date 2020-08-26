@@ -47,7 +47,7 @@ achieved.
 ### Local installation for running the webapp on your local machine
 For this project python3.8 was used. To get the app started you first you have to get all project files and install 
 all required packages:
-1. `git clone https://github.com/cokl87/jamdocs project-name`
+1. `git clone https://github.com/cokl87/DogBreedClassifier_CNN project-name`
 2. `cd project-name`
 3. `virtualenv venv -p=3.8`
 4. `source venv/bin/activate`
@@ -55,36 +55,41 @@ all required packages:
 
 Then you need to create the database for the webapp with the required tables and schemas. You can create it using the 
 helperfuncs.py module:
-```
+```python
 import source.helperfuncs as hf
-hf.create_new_maintable(<Path2DB>, <tablename1>)
-hf.create_new_probtable(<Path2DB>, <tablename2>)
+hf.create_new_maintable()
+hf.create_new_probtable()
 ```
 
-Configure your App-settings in webapp/run.py:
+Configure your App-settings in run_app.py:
+```python
+app.run(host='0.0.0.0', port=3001, debug=False)
 ```
-DEBUG = True
-HOST = '0.0.0.0'
-PORT = 3001
 
-DOG_IMAGES_ROOT = './static/img/dog_breeds'
-DB_PTH = './classifications.sqlite3'
+And configure the table names and the path to your database in routes.py if you didn't use the default values
+```python
+DOG_IMAGES_ROOT = './webapp/static/img/dog_breeds'
+DB_PTH = './webapp/classifications.sqlite3'
 PROB_TABLE = 'probs'
 CLASS_TABLE = 'queries'
 ```
 
-And you're good to go: `python webappp/run.py`
+Now you're good to go: `python run_app.py`
+
 
 ## File Descriptions
+The main file for running the app is [run_app.py](./run_app.py)
 One can find 4 directories in the project.
-#### webapp:
-contains the files for the webapp. The run.py runs the flask-app and defines the views.
-* The templates directory contains the html-templates.
-* The static directory contains content linked in the html-templates.
-* the logging directory contains a module and configuration for webapp's logging.
 
-In templates you can find the 
-HTML-templates. Static content for the app can be found in static-directory.
+#### models:
+The trained keras-models (CNNs):
+* model.best.from_scratch.hdf5: stand alone model without transfer learning. Expects scaled RGB-arrays of shape 
+(X, 224, 224, 3) as input (you might use preprocess_image.paths_to_tensor with kwarg 'scale=True'.
+* model.best.resnet50.hdf5: model uses knowledge from on imagenet trained resnet-model. (You might use output of 
+apply_cnn.Resnet50.transfer as input)
+* model.best.vgg16.hdf5: model uses knowledge from in imagenet trained vgg16-model. (You might use output of 
+apply_cnn.VGG16.transfer as input)
+
 #### source:
 * [apply_cnn.py](./source/apply_cnn.py) - functions and classes for determination of humans/dogs and making predictions 
 about dog-breeds
@@ -99,15 +104,15 @@ the webapp not actual part of the app/ project however and therefor optional.
 * [logging.json](./source/logging.json) - json file where loggers, handlers and formatters are defined
 -->
 
-#### models:
-The trained keras-models (CNNs):
-* model.best.from_scratch.hdf5: stand alone model without transfer learning. Expects scaled RGB-arrays of shape 
-(X, 224, 224, 3) as input (you might use preprocess_image.paths_to_tensor with kwarg 'scale=True'.
-* model.best.resnet50.hdf5: model uses knowledge from on imagenet trained resnet-model. (You might use output of 
-apply_cnn.Resnet50.transfer as input)
-* model.best.vgg16.hdf5: model uses knowledge from in imagenet trained vgg16-model. (You might use output of 
-apply_cnn.VGG16.transfer as input)
+#### webapp:
+In the webapp the files used for the webapp are included:
+* [__init__.py](./webapp/__init__.py) - makes the directory to a python package; defines the app-object
+* [routes.py](./webapp/routes.py) - defines the routes of the webapp and contains some functions used only within these routes
 
+Included are also three directories:
+* templates: directory contains the html-templates used in the web-app
+* static: directory contains content linked in the html-templates
+* logging directory contains a module and configuration for the webapp's logging
 
 #### haarcascade:
 Contains Intel's haarcascade-classifier used for detection of human-faces in image. Consider it's license.
