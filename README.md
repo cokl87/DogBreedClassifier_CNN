@@ -53,7 +53,7 @@ Because there was no majority classes dominating all other classes and therefor 
 the accuracy measure was used for the evaluation of the models:
 <!-- $$ acc = \frac{# correct classified dogs}{# all images} $$ -->
 
-![equation](http://latex.codecogs.com/gif.latex?acc%3D%5Cfrac%7B%5C%23%20correct%20classified%20dogs%7D%7B%5C%23%20all%20images%7D)
+![equation](http://latex.codecogs.com/gif.latex?acc%3D%5Cfrac%7B%5C%23%20Correct%20Classified%20Dogs%7D%7B%5C%23%20All%20Images%7D)
 
 Other possibilities would have been to calculate f1 scores for every class:
 
