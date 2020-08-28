@@ -29,18 +29,87 @@ layers were added. You can see the individual architectures of the final 'on top
 The final trained models were deployed in this webapp where users can upload own images and see whether they contain a
 dog or a human and which dog-breed it resembles the most.
 
-### Conclusion
-Until now three models were trained. One model without usage of transfer learning, one model built on top of the
-VGG16 model and one build upon the Resnet50-model. The DataSet of the dog-images was subdivided in a training, 
-validation and testing set. For measuring the final quality of the models, the accuracy on the testing-set was assessed.
-* The model without TL ('from_scratch') achieved an accuracy of 28.0%
-* The model built upon VGG16 an accuracy of 62.3%
-* The model built upon Resnet50 an accuracy of 80.6%
+### Preprocessing
+Before the images where passed to the Input-layer of the neural networks the size had to be transformed to a uniform
+shape. Therefor the images were read and scaled to an array of 224x224 pixles with their RGB values which give a input 
+array of size 224x224x3. If images with a very different height and width ratio compared to the training data, simple 
+scaling could be problematic.
+To avoid very large or very small weights the R,G and B values were normed to a value range between 0 and 1 by dividing 
+them by 255.
+The images were also used as is without any further input-augmentation like rotation, horizontal mirroring etc. in 
+order to artificially 'increase' the amount of input data available for training the CNNs. By Input-augmentation the 
+Neural Network has the change to learn on 'different' versions of one image different representations of dogs and 
+abstract from them the patterns needed for correct classification of the iamges. By using this technique the accuracies 
+at least of the model 'from scratch' could be further improved.
+For the models using learning transfer the transfer-model's specific preprocessing steps had to be used in order to 
+make correct predictions with these models. For further information on the preprocessing steps used by these models 
+please refer to their corresponding documentation.
 
-The numbers might seem small, but given 133 classes, random choice would lead to an average accuracy of only
-0.75%. I find it very astonishing that with a very small, relatively simple model, like I build myself from scratch 
-and the limitations based on time, amount of reference data and computational power, accuracies of ~30% were 
-achieved.
+### Metrics
+At the beginning of the project the available data was analysed. Images of all 133 dog-classes had been available. The 
+dog classes were in all datasets (training, validation and testing) more or less equally represented (the whole dataset 
+showed a mean of 62.79 images per class with a standard deviation of 14.80).
+Because there was no majority classes dominating all other classes and therefor the accuracy paradoxon wasn't an issue,
+the accuracy measure was used for the evaluation of the models:
+<!-- $$ acc = \frac{# correct classified dogs}{# all images} $$ -->
+
+![equation](http://latex.codecogs.com/gif.latex?acc%3D%5Cfrac%7B%5C%23%20correct%20classified%20dogs%7D%7B%5C%23%20all%20images%7D)
+
+Other possibilities would have been to calculate f1 scores for every class:
+
+![equation](http://latex.codecogs.com/gif.latex?f1%3D%5Cfrac%7B2%2Arecall%2Aprecicion%7D%7Brecall%2Bprecicion%7D)
+<!-- $$f1 = \frac{2 * recall * precision}{recall + precision}$$. -->
+Or to calculate a confusion matrix.
+
+### Methods/ Models appplied
+
+#### Without usage Transfer Learning
+First a CNN without Transfer Learning was created from scratch:
+
+Therefor the 224x224x3 matrix was passed to a sequence of convolutional layers of size 3x3, stride 1 and a 
+relu-activation function and maxpooling-layers of size 2x2 and stride 2. The First can be seen as filters, which 
+extract patterns from the image and increase the 'depth' of the matrix, the latter aggregate the image and decrease the 
+size of the data in each sequence by half. After 4 sequences the remaining x/y extend was aggregated via a 
+GlobalAveragePooling layer to transform the matrix to a 1d-vector containing the extracted 'patterns' which then was 
+input to two Dense layers. 
+
+The first Dense layer had a tangens-hyberbolicus activation function and a l2-regularization for avoiding overfitting 
+by punishing large weights. The second Dense layer had 133 nodes with a softmax-activation function for mapping the 
+final output to the dog-classes. The error function was determined by the categorical-crossentropy. This function was 
+reduced by the adam-optimizer which includes a learningrate adaption as well as momentum. Adam showed faster 
+descending then other optimizers like RMSprop.
+
+This model achieved an accuracy of 28.0%. This value might seem low, but given 133 classes, random chance would result
+in a average accuracy of 0.75%.
+
+#### Usage of Transfer Learning
+For further improving the achieved accuracies of the classification task, it was decided to make usage of transfer 
+learning. Two models were picked: The VGG16 and the Resnet50 model which were trained on imagenet.
+
+Because the amount of the available training data was rather small (8351 dog-images) and the pretrained models were
+trained on data including similar classes (imagenet has 120 dog classes), transfer Learning was used by simply taking the
+models, removing their end of dense layers and adding additional layers which are then trained without changeing the
+original architecture or weights. In fact the old model was used for preprocessing of the training data. The so 
+preprocessed or aggregated data was used for training the new 'top'-model.
+
+##### VGG16:
+The output of the cut-off VGG16-model has a shape of 7x7x512. This output was input to a MaxPooling2D-Layer of size 4x4
+and stride 4 with padding for further aggregation. The so aggregated  data was flattened and fet to two Dense Layers
+similar to the 'from scratch'-model with first tanh and l2-regularization and second softmax activation function.
+This model achieved with 62.3% a significant higher accuracy then the model without transfer learning.
+
+##### Resnet50:
+The output of the Resnet50 model has a shape of 1x1x2048. A Flattening Layer was therefor not necessary. Unlike the
+VGG16 model a composition of three Dense Layers of sizes 512, 256 and 133 showed best results. The first two layers used
+ tanh as activation-function with l2-regularization and the last layer a softmax activation function for calculating the
+ final probabilities. The model was able to achieve an accuracy of 80.6%
+
+### Conclusion
+Until now three models were trained. The first model build from scratch showed already surprisingly good results with an
+accuracy of 28%. By usage of transfer learning the accuracies of the models were greatly improved to 62.3% - vgg16 and
+80.6% - resnet50.
+The accuracies might seem small, but given 133 classes, random choice would lead to an average accuracy of only
+0.75%.
 
 
 ## Installation
