@@ -4,12 +4,16 @@
 # file ending .log
 *.log*
 
-# all files starting with dot except gitignore
+# all files starting with dot except gitignore and environment-file
 **/.*
 !.gitignore
+!.env
 
 # compiled python code
 *.pyc
 
 # databases
 *.sqlite3
+
+# migrations directory
+migrations/*

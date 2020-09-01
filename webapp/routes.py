@@ -12,31 +12,32 @@ routes.py script for running flask-app
 import os.path
 import logging
 import glob
-import sqlite3
 import json
-from functools import wraps
 from random import sample
 from io import BytesIO
 from base64 import b64encode
 
 # 3rd party imports
 from flask import render_template, request
+from sqlalchemy import func
 from keras.preprocessing.image import array_to_img
 import numpy as np
 import plotly
 import plotly.graph_objects as go
+from psycopg2.extensions import register_adapter, AsIs
 
 # project imports
-from webapp import app
+from webapp import app, db
 import source.apply_cnn as apply_cnn
 from source.preprocess_image import path_to_tensor
+from webapp.models import Query, Probabilities
 
 # configure logging
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
-# configure sqlite3 adapter for numpy-ints
-sqlite3.register_adapter(np.int32, lambda x: int(x))
+# configure postgres adapter for numpy-ints
+register_adapter(np.int32, AsIs)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -44,9 +45,6 @@ sqlite3.register_adapter(np.int32, lambda x: int(x))
 # --------------------------------------------------------------------------------------------------
 
 DOG_IMAGES_ROOT = './webapp/static/img/dog_breeds'
-DB_PTH = './webapp/classifications.sqlite3'
-PROB_TABLE = 'probs'
-CLASS_TABLE = 'queries'
 
 
 # --------------------------------------------------------------------------------------------------
@@ -98,48 +96,19 @@ def get_dog_images(class_nr, number=3):
     return sample(dog_images, min(number, len(dog_images)))
 
 
-def connected(func):
-    """
-    wrapper-function for wrapping sql-queries to ensure db-connection and closing of the db.
-    """
-    @wraps(func)
-    def decorated(*args, **kwargs):
-        """
-        Connect to Database and give cursor-object to wrapped function. Close DB after database commit.
-
-        Parameters
-        ----------
-        args
-        kwargs
-
-        Returns
-        -------
-        return value from wrapped function
-        """
-        con = sqlite3.connect(DB_PTH)
-        cur = con.cursor()
-        result = func(cur, *args, **kwargs)
-        con.commit()
-        con.close()
-        return result
-    return decorated
-
-
-@connected
-def write_class2db(cursor, name, species, dogbreed_int, dogbreed_name, model):
+def write_class2db(name, species, dogbreed_int, dogbreed_name, model):
     """
     write entry to query-table.
 
     Parameters
     ----------
-    cursor: cursor-obj
     name: str or None
         value for name-attribute
     species: int
         value for species-attribute
-    dogbreed_int: int
+    dogbreed_int: int or None
         value for dogbreed_int-attribute
-    dogbreed_name: str
+    dogbreed_name: str or None
         value for dogbreed_name-attribute
     model: str
         value for model-attribute
@@ -148,43 +117,19 @@ def write_class2db(cursor, name, species, dogbreed_int, dogbreed_name, model):
     -------
     None
     """
-    t = (name, species, dogbreed_int, dogbreed_name, model)
-    # do not specify qid to let the sqlite3 engine increment the id by one
-    sql_str = "INSERT INTO %s (name, species, dogbreed_int, dogbreed_name, model) VALUES (?,?,?,?,?);" % CLASS_TABLE
-    cursor.execute(sql_str, t)
+    query = Query(
+        name, species, dogbreed_int, dogbreed_name, model
+    )
+    db.session.add(query)
+    db.session.commit()
 
 
-@connected
-def write_props2db(cursor, querry_id, probs):
-    """
-    write entry to property-table.
-
-    Parameters
-    ----------
-    cursor: cursor-obj
-    querry_id: int
-        key for querry-table
-    probs: iterable
-        iterable of length 133 with prediction probabilities for different classes
-
-    Returns
-    -------
-    None
-    """
-    column_str = 'qid,' + ', '.join(('p_%03i' % idx for idx in range(1, 134)))
-    sql_str = "INSERT INTO %s (%s) VALUES (%s);" % (PROB_TABLE, column_str, ', '.join(('?' for _ in range(0, 133+1))))
-    t = (querry_id,) + tuple(probs)
-    cursor.execute(sql_str, t)
-
-
-@connected
-def write_class_and_props2db(cursor, name, species, dogbreed_int, dogbreed_name, model, probs):
+def write_class_and_props2db(name, species, dogbreed_int, dogbreed_name, model, probs):
     """
     write entry into query and in property table.
 
     Parameters
     ----------
-    cursor: cursor-obj
     name: str
     species: int
     dogbreed_int: int
@@ -197,27 +142,15 @@ def write_class_and_props2db(cursor, name, species, dogbreed_int, dogbreed_name,
     -------
     None
     """
-    write_class2db.__wrapped__(cursor, name, species, dogbreed_int, dogbreed_name, model)
-    querry_id = next(cursor.execute("SELECT max(qid) FROM %s" % CLASS_TABLE))[0]
-    write_props2db.__wrapped__(cursor, querry_id, probs)
+    query = Query(
+        name, species, dogbreed_int, dogbreed_name, model
+    )
+    db.session.add(query)
+    db.session.flush()
 
-
-@connected
-def execute_querry(cursor, querry):
-    """
-    execute sql-querry str
-
-    Parameters
-    ----------
-    cursor: cursor-obj
-    querry: str
-        sql-querry
-
-    Returns
-    -------
-    result rows
-    """
-    return [row for row in cursor.execute(querry)]
+    probs = Probabilities(query.id, probs)
+    db.session.add(probs)
+    db.session.commit()
 
 
 def create_dogbreed_histogram():
@@ -229,13 +162,17 @@ def create_dogbreed_histogram():
     str
         json-representation of chart
     """
-    hum_qres = execute_querry(
-        "SELECT dogbreed_name, COUNT(ALL) FROM %s WHERE species==1 GROUP BY dogbreed_int;" % CLASS_TABLE)
+    # SELECT dogbreed_name, COUNT(ALL) FROM Query WHERE species==1 GROUP BY dogbreed_int;
+    hum_qres = db.session.query(Query.dogbreed_name, func.count(Query.dogbreed_name)).filter(
+        Query.species == 1).group_by(Query.dogbreed_name).all()
     h_x, h_y = list(zip(*hum_qres)) if hum_qres else ((), ())
-    dog_qres = execute_querry(
-        "SELECT dogbreed_name, COUNT(ALL) FROM %s WHERE species==0 GROUP BY dogbreed_int;" % CLASS_TABLE)
+
+    # SELECT dogbreed_name, COUNT(ALL) FROM Query WHERE species==0 GROUP BY dogbreed_int;
+    dog_qres = db.session.query(Query.dogbreed_name, func.count(Query.dogbreed_name)).filter(
+        Query.species == 0).group_by(Query.dogbreed_name).all()
     d_x, d_y = list(zip(*dog_qres)) if dog_qres else ((), ())
 
+    # create graph
     graph = go.Figure()
     graph.add_trace(go.Bar(x=h_x, y=h_y, name='humans'))
     graph.add_trace(go.Bar(x=d_x, y=d_y, name='dogs'))
@@ -257,9 +194,14 @@ def create_species_pie():
     str
         json-representation of chart
     """
-    spec_qres = execute_querry("SELECT species, COUNT(ALL) FROM %s GROUP BY species;" % CLASS_TABLE)
+
+    # SELECT species, COUNT(ALL) FROM Query GROUP BY species;
+    spec_qres = db.session.query(Query.species, func.count(Query.species)).group_by(Query.species).all()
     species, counts = list(zip(*spec_qres)) if spec_qres else ((), ())
+
     label_mapper = {0: 'dogs', 1: 'humans', 2: 'other'}
+
+    # create graph
     graph = go.Figure()
     graph.add_trace(go.Pie(labels=[label_mapper.get(spec) for spec in species], values=counts))
     graph.update_layout(dict(
@@ -277,8 +219,12 @@ def create_models_pie():
     str
         json-representation of chart
     """
-    model_qres = execute_querry('SELECT model, COUNT(ALL) FROM %s GROUP BY model;' % CLASS_TABLE)
+
+    # SELECT model, COUNT(ALL) FROM Query GROUP BY model;
+    model_qres = db.session.query(Query.model, func.count(Query.model)).group_by(Query.model).all()
     models, counts = list(zip(*model_qres)) if model_qres else ((), ())
+
+    # create graph
     graph = go.Figure()
     graph.add_trace(go.Pie(labels=models, values=counts))
     graph.update_layout(dict(
@@ -340,10 +286,10 @@ def classify_image():
                 )
             else:
                 # iterable needed. dog_name will be replaced in template via JavaScript, so None is fine.
-                write_class2db(name, species, None, None, model)
                 dog_images = ()
                 top10 = ()
                 dog_name = None
+                write_class2db(name, species, None, dog_name, model)
 
             # transform the image to how the CNN sees it
             bytes_image.seek(0)
@@ -375,7 +321,8 @@ def stats():
     json_species_pie = create_species_pie()
 
     # create result table: name - dogbreed-name - model
-    usr_results = execute_querry('SELECT name, dogbreed_name, model FROM %s WHERE name IS NOT NULL;' % CLASS_TABLE)
+    # SELECT name, dogbreed_name, model FROM Query WHERE name IS NOT NULL;
+    usr_results = db.session.query(Query.name, Query.dogbreed_name, Query.model).filter(Query.name.isnot(None))
 
     return render_template(
         'statistics.html',

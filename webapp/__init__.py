@@ -9,6 +9,7 @@ author: kornel
 
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+import os.path
 
 # configure tensorflow for limiting memory used
 import tensorflow as tf
