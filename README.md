@@ -2,9 +2,14 @@
 
 ### Table of Contents
 1. [Project Motivation and Description](#project-motivation-and-description)
+    1. [Preprocessing](#preprocessing)
+    2. [Metrics](#metrics)
+    3. [Models applied](#methods-models-appplied)
+    4. [Conclusion](#conclusion)
 2. [Installation](#installation)
 3. [File Descriptions](#file-descriptions)
-4. [Licensing, Authors, Acknowledgements](#licensing-authors-acknowledgements)
+4. [TODOs](#todos)
+5. [Licensing, Authors, Acknowledgements](#licensing-authors-acknowledgements)
 
 
 ## Project Motivation and Description
@@ -36,10 +41,11 @@ array of size 224x224x3. If images with a very different height and width ratio 
 scaling could be problematic.
 To avoid very large or very small weights the R,G and B values were normed to a value range between 0 and 1 by dividing 
 them by 255.
+
 The images were also used as is without any further input-augmentation like rotation, horizontal mirroring etc. in 
 order to artificially 'increase' the amount of input data available for training the CNNs. By Input-augmentation the 
 Neural Network has the change to learn on 'different' versions of one image different representations of dogs and 
-abstract from them the patterns needed for correct classification of the iamges. By using this technique the accuracies 
+abstract from them the patterns needed for correct classification of the images. By using this technique the accuracies 
 at least of the model 'from scratch' could be further improved.
 For the models using learning transfer the transfer-model's specific preprocessing steps had to be used in order to 
 make correct predictions with these models. For further information on the preprocessing steps used by these models 
@@ -105,12 +111,52 @@ VGG16 model a composition of three Dense Layers of sizes 512, 256 and 133 showed
  final probabilities. The model was able to achieve an accuracy of 80.6%
 
 ### Conclusion
-Until now three models were trained. The first model build from scratch showed already surprisingly good results with an
-accuracy of 28%. By usage of transfer learning the accuracies of the models were greatly improved to 62.3% - vgg16 and
-80.6% - resnet50.
-The accuracies might seem small, but given 133 classes, random choice would lead to an average accuracy of only
-0.75%.
+Within this project three CNNs were trained for classifying 133 dog-breeds in images. For training of these CNNs only 
+8351 labeled images were available. First a model from scratch was build and trained on these images. It already 
+reached an accuracy of 28% which is surprisingly good given that random change would lead only to an accuracy of 0.75%.
 
+For further improvements on the classification, transfer learning was used. Therefore, based on two pretrained CNNs,
+individual on-top-models were build and trained on the data. This lead to an great increase of the accuracies: The model
+ based on Vgg16 reached an accuracy on test data of 62.3% and the model build upon Resnet50 and accuracy of impressive 
+ 80.6%. This shows impressingly what can be achieved with little effort by just using previous work and knowledge in 
+ form of pretrained models.
+
+There are still many ways however, how even better results might be achieved within this project:
+
+It became apparent that, given the relatively small amount of data, overfitting was an issue. When training the CNNs 
+within this project overfitting was avoided by breaking the training process (before the last epoch was reached), once 
+the validation-error was increasing in a series of three epochs. For most of the models this criteria was fullfilled 
+after only a view epochs. From this point on further training would result in better classifications within the training
+ image-set, but poor results for unseen images.
+
+To avoid overfitting and therefore come to even better classifications several improvements could be done:
+
+* As discussed in the previous sections image augmentation techniques were not used in this project but could be a very 
+promising way to further improve training of the models. By image augmentation the 'amount' of images can be 
+artificially increased (by rotation/mirroring etc.). Therefore misleading factors for the classification, like were in 
+the image the dog is depicted can be decreased.
+* as Alexis Cook discusses in this [article](https://alexisbcook.github.io/2017/global-average-pooling-layers-for-object-localization/)
+Some of the models used for transfer learning (e.g. VGG16) does not use Dropout-Layers in order to decrease the chance 
+of overfitting. DO-Layers could be added to their architecture before retraining their weights. Retraining of their
+weights would however require more training-data (images).
+* In this project a Max-Pooling Layer + Flattening Layer was added in the VGG16-Transfer-model. One way to improve it, 
+would be to replace the MaxPooling and Flatteing Layers by a GlobalAveralgePooling Layer, as these layers reduce 
+overfitting as pointed out in the [first comment](https://alexisbcook.github.io/2017/global-average-pooling-layers-for-object-localization/)
+ of Alexis Cook article. (The GAP-Layer makes the CNN invariant towards on which area the dog is within the image)
+* Other pretrained models like Xception could be assessed for Transfer Learning in this classification task.
+
+On more way to decrease overfitting and improve the training of the models is obvioulsly to gather more labeled data 
+available for training. With more training-data even other techniques for transfer learning could be assessed like
+readjusting the weights of the pretrained-models, so that they can reflect better to the specifics in dogbreed-
+classification.
+More data would be especially helpful for classes difficult to identify (e.g. dog breeds with a high in-class 
+variability or dog breeds with a small inter-class variability (similar dog-breeds)). If the amount of data per class
+has a high variability however the choice of the metrics might have to be reassessed.
+
+One way to gather more label data could be to use the images uploaded in the webapp. Therefore the images would have 
+to be stored and somehow correctly labeled (either by the uploading user if he already knows the breed and is 
+trustworthy, or by some specialists). With the new gathered data the weights of the CNNs could be then from time to time 
+readjusted.
 
 ## Installation
 ### Local installation for running the webapp on your local machine
@@ -122,12 +168,21 @@ all required packages:
 4. `source venv/bin/activate`
 5. `pip install -r requirements.txt`
 
-Then you need to create the database for the webapp with the required tables and schemas. You can create it using the 
-helperfuncs.py module:
-```python
-import source.helperfuncs as hf
-hf.create_new_maintable()
-hf.create_new_probtable()
+Then you need to create the database for the webapp with the required tables and schemas. Therefor you need postgres
+isntalled. On Linux you can do that with `sudo apt-get install postgresql postgresql-contrib`. Then you can create the
+ needed database by using the migrate.py module:
+```
+# add the needed environment-variables (you might want to edit the variables first)
+source .env
+
+# create the migrations directory in your project directory 
+python migrate.py db init
+
+# migrate the database
+python migrate.py db migrate
+
+# apply migrations to the database
+python migrate.py db upgrade
 ```
 
 Configure your App-settings in run_app.py:
@@ -138,17 +193,19 @@ app.run(host='0.0.0.0', port=3001, debug=False)
 And configure the table names and the path to your database in routes.py if you didn't use the default values
 ```python
 DOG_IMAGES_ROOT = './webapp/static/img/dog_breeds'
-DB_PTH = './webapp/classifications.sqlite3'
-PROB_TABLE = 'probs'
-CLASS_TABLE = 'queries'
 ```
 
 Now you're good to go: `python run_app.py`
 
 
 ## File Descriptions
-The main file for running the app is [run_app.py](./run_app.py)
-One can find 4 directories in the project.
+In the main directory you find several files. The most important ones are:
+* [run_app.py](./run_app.py) - The main file for running the app
+* [migrate.py](./migrate.py) - The script for creating the postgres-database tables and managing migrations
+* [config.py](./config.py) - definitions of several configurations for the flask-app
+* [.env](./.env) - definition of environment variables used by the app (e.g. db-location, configuration to use)
+
+Furthermore you find 4 directories in the project:
 
 #### models:
 The trained keras-models (CNNs):
@@ -165,8 +222,8 @@ about dog-breeds
 * [preprocess_image.py](./source/preprocess_image.py) - functions for preprocessing images before feeding them into CNNs
 * [dog_classes_en.json](./source/dog_classes_en.json) - json file containing list of english dog breed-names ordered by 
 output classes of CNNs. 
-* [helperfuncs.py](./source/helperfuncs.py) - optional functions helping to create the database and other contents for
-the webapp not actual part of the app/ project however and therefor optional.
+* [helperfuncs.py](./source/helperfuncs.py) - optional functions helping to create a sqlite3-database and other 
+contents for the webapp. No actual part of the app/ project however and therefor optional.
 
 <!--
 * [log_config.py](./source/log_config.py) - includes function for configuration of logging module
@@ -175,8 +232,10 @@ the webapp not actual part of the app/ project however and therefor optional.
 
 #### webapp:
 In the webapp the files used for the webapp are included:
-* [__init__.py](./webapp/__init__.py) - makes the directory to a python package; defines the app-object
-* [routes.py](./webapp/routes.py) - defines the routes of the webapp and contains some functions used only within these routes
+* [__init__.py](./webapp/__init__.py) - makes the directory to a python package; defines the app- and db-object
+* [routes.py](./webapp/routes.py) - defines the routes of the webapp and contains some functions used only within these 
+routes
+* [models.py](./webapp/models.py) - definitions of postgres-tables used
 
 Included are also three directories:
 * templates: directory contains the html-templates used in the web-app
@@ -187,11 +246,22 @@ Included are also three directories:
 Contains Intel's haarcascade-classifier used for detection of human-faces in image. Consider it's license.
 
 
+## TODOs:
+* Images by the Users are accepted as is and not checked for right format, reasonable size etc. Functionality needs to
+be implemented to check this user-input before further processing.
+* When hosting the webapp on a free platform like heroku, the memory consumption is causing shutdowns. Optimizations
+could be done to decrease the memory required
+* Trained models can be further optimized e.g. by usage of Image-augmentation.
+* The following bugs need to be fixed:
+    * code.html-template. When importing the notebook.html via JavaScript, the css of bootstrap's navbar becomes altered
+    * The file-name displayed after selection, is only shown if a previous classification had been made.
+
+
 ## Licensing, Authors, Acknowledgements
 The project was part of the [Udacity's DataScientist program](https://www.udacity.com/course/data-scientist-nanodegree--nd025).
 The html-version of the [notebook](./webapp/static/notebook) included in the code.html template, is a cleaned version 
-of a project of Udacity in which I designed and trained the CNNs.
+of a project of Udacity in which I designed and trained the CNNs which are deployed in this webapp.
 
-The webapp uses for detection of human-faces Intel's haarcascade-classifier. Consider it's 
+The webapp uses, for the detection of human-faces, Intel's haarcascade-classifier. Consider it's 
 [license agreement](./haarcascade/haarcascade_frontalface_alt.xml).
 The other parts of the project you may use as you like.
